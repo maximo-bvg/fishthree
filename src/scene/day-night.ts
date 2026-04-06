@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { type Lights } from './lighting'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { type DecorationEffects } from '../decorations/effects'
 
 // --- Keyframe types ---
 
@@ -209,6 +210,7 @@ export class DayNightCycle {
   private lights: Lights
   private scene: THREE.Scene
   private underwaterPass: ShaderPass | null = null
+  private decorationEffects: DecorationEffects | null = null
 
   /** Current speed multiplier for fish (0.5 to 1.3) */
   speedMultiplier = 1.0
@@ -232,6 +234,11 @@ export class DayNightCycle {
   /** Optionally link the underwater post-processing pass for tint updates */
   setUnderwaterPass(pass: ShaderPass): void {
     this.underwaterPass = pass
+  }
+
+  /** Link decoration effects for tank light modulation */
+  setDecorationEffects(effects: DecorationEffects): void {
+    this.decorationEffects = effects
   }
 
   update(dt: number): void {
@@ -292,5 +299,25 @@ export class DayNightCycle {
 
     // Time label
     this.timeOfDay = getTimeOfDay(this.progress)
+
+    // Modulate tank light decorations — brighter at night, dimmer in daylight
+    if (this.decorationEffects) {
+      // Inverse of ambient: dark scene = bright tank light
+      const nightFactor = 1.0 - Math.min(kf.ambientIntensity / 4.0, 1.0)
+      // Range: 0.3 (noon) to 1.0 (midnight)
+      const lightStrength = 0.3 + nightFactor * 0.7
+
+      for (const spot of this.decorationEffects.getSpotlights()) {
+        spot.intensity = 3.0 * lightStrength
+      }
+      for (const cone of this.decorationEffects.getLightCones()) {
+        const mat = cone.material as THREE.MeshBasicMaterial
+        mat.opacity = 0.04 + nightFactor * 0.12
+      }
+      for (const lens of this.decorationEffects.getLightLenses()) {
+        const mat = lens.material as THREE.MeshStandardMaterial
+        mat.emissiveIntensity = 1.0 + nightFactor * 3.0
+      }
+    }
   }
 }

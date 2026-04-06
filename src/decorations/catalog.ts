@@ -141,8 +141,9 @@ function createTankLight(): THREE.Group {
   const lens = new THREE.Mesh(lensGeo, new THREE.MeshStandardMaterial({
     color: 0xffffaa,
     emissive: 0xffffaa,
-    emissiveIntensity: 0.5,
+    emissiveIntensity: 2.0,
   }))
+  lens.name = 'tank_light_lens'
   lens.rotation.x = -Math.PI / 2
   lens.position.y = -0.07
   group.add(lens)

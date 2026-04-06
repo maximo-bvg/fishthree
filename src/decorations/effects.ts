@@ -12,6 +12,8 @@ export class DecorationEffects {
   private swayingMeshes: { mesh: THREE.Group; speed: number; amplitude: number }[] = []
   private bubblers: { origin: THREE.Vector3; particles: BubbleParticle[] }[] = []
   private spotlights: THREE.SpotLight[] = []
+  private lightCones: THREE.Mesh[] = []
+  private lightLenses: THREE.Mesh[] = []
   private scene: THREE.Scene
 
   constructor(scene: THREE.Scene) {
@@ -33,7 +35,7 @@ export class DecorationEffects {
         this.addBubbler(mesh.position.clone().add(new THREE.Vector3(0, 0.15, 0)))
         break
       case 'tank_light':
-        this.addSpotlight(mesh.position)
+        this.addSpotlight(mesh)
         break
       case 'brain_coral':
         this.swayingMeshes.push({ mesh, speed: 0.3, amplitude: 0.02 })
@@ -74,13 +76,55 @@ export class DecorationEffects {
     this.bubblers.push({ origin, particles })
   }
 
-  private addSpotlight(position: THREE.Vector3): void {
-    const light = new THREE.SpotLight(0xffffaa, 0.6, 5, Math.PI / 6, 0.5)
+  private addSpotlight(mesh: THREE.Group): void {
+    const position = mesh.position
+
+    // Strong spotlight that's visible at night
+    const light = new THREE.SpotLight(0xffffaa, 3.0, 6, Math.PI / 5, 0.4)
     light.position.copy(position)
-    light.target.position.set(position.x, position.y - 3, position.z)
+    light.target.position.set(position.x, position.y - 4, position.z)
     this.scene.add(light)
     this.scene.add(light.target)
     this.spotlights.push(light)
+
+    // Visible volumetric light cone
+    const coneHeight = 3.0
+    const coneRadius = coneHeight * Math.tan(Math.PI / 5)
+    const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 16, 1, true)
+    const coneMat = new THREE.MeshBasicMaterial({
+      color: 0xffffaa,
+      transparent: true,
+      opacity: 0.06,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const cone = new THREE.Mesh(coneGeo, coneMat)
+    cone.position.copy(position)
+    cone.position.y -= coneHeight / 2 + 0.1
+    this.scene.add(cone)
+    this.lightCones.push(cone)
+
+    // Track the lens mesh for emissive modulation
+    const lens = mesh.getObjectByName('tank_light_lens') as THREE.Mesh | undefined
+    if (lens) {
+      this.lightLenses.push(lens)
+    }
+  }
+
+  /** Get spotlights for external modulation (e.g. day/night cycle) */
+  getSpotlights(): THREE.SpotLight[] {
+    return this.spotlights
+  }
+
+  /** Get light cones for external modulation */
+  getLightCones(): THREE.Mesh[] {
+    return this.lightCones
+  }
+
+  /** Get light lenses for external modulation */
+  getLightLenses(): THREE.Mesh[] {
+    return this.lightLenses
   }
 
   update(time: number): void {

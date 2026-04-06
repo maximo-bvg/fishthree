@@ -87,6 +87,7 @@ dayNight.setUnderwaterPass(underwaterPass)
 
 const slotManager = new SlotManager()
 const effects = new DecorationEffects(scene)
+dayNight.setDecorationEffects(effects)
 const flakeManager = new FlakeManager(scene)
 
 // --- State ---
