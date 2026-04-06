@@ -72,24 +72,18 @@ export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId
 }
 
 function createGLBFishMesh(data: ModelData): THREE.Group {
-  // Clone the loaded scene
   const modelClone = data.scene.clone(true)
 
-  // Apply scale directly to the clone
-  modelClone.scale.setScalar(data.scale)
+  // Center the model in native (unscaled) units
+  modelClone.position.set(-data.center.x, -data.center.y, -data.center.z)
 
-  // Apply rotation
+  // Apply axis correction rotation
   modelClone.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2])
 
-  // Offset to center (in scaled local space, so divide by scale)
-  modelClone.position.set(
-    -data.center.x * data.scale,
-    -data.center.y * data.scale,
-    -data.center.z * data.scale,
-  )
-
-  // Wrap in a fresh group — this group's position/rotation will be controlled by Fish
+  // Wrapper group: Fish controls position (movement) and rotation (lookAt)
+  // Scale goes on the wrapper so it doesn't interfere with centering
   const group = new THREE.Group()
+  group.scale.setScalar(data.scale)
   group.add(modelClone)
   group.userData.hasGLB = true
   return group
