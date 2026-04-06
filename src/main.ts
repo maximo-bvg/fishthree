@@ -1,4 +1,8 @@
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
 import { createLighting, updateCaustics } from './scene/lighting'
@@ -25,12 +29,34 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 app.appendChild(renderer.domElement)
 
+// --- Post-processing ---
+const composer = new EffectComposer(renderer)
+
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x0a3d6b)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 const tankMeshes = createTank(scene)
 const lights = createLighting(scene)
+
+const renderPass = new RenderPass(scene, camera)
+composer.addPass(renderPass)
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.3,  // strength
+  0.4,  // radius
+  0.85, // threshold
+)
+composer.addPass(bloomPass)
+
+const bokehPass = new BokehPass(scene, camera, {
+  focus: 14.0,
+  aperture: 0.002,
+  maxblur: 0.005,
+})
+composer.addPass(bokehPass)
+
 const slotManager = new SlotManager()
 const effects = new DecorationEffects(scene)
 
@@ -167,7 +193,7 @@ const panelCallbacks: PanelCallbacks = {
     persistState()
   },
   onScreenshot: () => {
-    renderer.render(scene, camera)
+    composer.render()
     const link = document.createElement('a')
     link.download = 'fishtank.png'
     link.href = renderer.domElement.toDataURL('image/png')
@@ -373,6 +399,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  composer.setSize(window.innerWidth, window.innerHeight)
 })
 
 // --- Render loop ---
@@ -389,7 +416,8 @@ function animate() {
   updateParallax(camera)
   effects.update(elapsed)
 
-  renderer.render(scene, camera)
+  bloomPass.enabled = settings.bloom
+  composer.render()
 }
 
 animate()
