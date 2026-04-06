@@ -4,13 +4,20 @@ import { type SpeciesDefinition, type SpeciesId } from './species'
 import { lowPolyMaterial, jitterVertices } from '../utils/geometry'
 
 const loader = new GLTFLoader()
-const modelCache = new Map<string, THREE.Group>()
+
+interface ModelData {
+  scene: THREE.Group
+  scale: number
+  rotation: [number, number, number]
+  center: THREE.Vector3
+}
+
+const modelCache = new Map<string, ModelData>()
 const failedModels = new Set<string>()
 
 /**
  * Preload all GLB models for the given species. Call once at startup.
- * Models that fail to load will silently fall back to procedural geometry.
- * Each model is auto-normalized so its largest dimension matches the species target size.
+ * Stores model data for later cloning. Falls back to procedural geometry on failure.
  */
 export async function preloadModels(species: Record<string, SpeciesDefinition>): Promise<void> {
   const promises: Promise<void>[] = []
@@ -19,43 +26,30 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
     promises.push(
       loader.loadAsync(def.modelPath)
         .then((gltf) => {
-          const model = gltf.scene
+          const scene = gltf.scene
 
           // Enable shadows on all meshes
-          model.traverse((child) => {
+          scene.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
               child.castShadow = true
             }
           })
 
-          // Auto-normalize: scale so the model's largest dimension matches the procedural fish size
-          // Procedural fish bodies are ~bodyLength*2 + tail, so we target bodyLength * 3
-          const box = new THREE.Box3().setFromObject(model)
+          // Compute bounding box for size normalization and centering
+          const box = new THREE.Box3().setFromObject(scene)
           const nativeSize = new THREE.Vector3()
           box.getSize(nativeSize)
-          const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
-          if (maxDim > 0) {
-            const targetSize = Math.max(def.bodyLength * 3, def.size * 5)
-            const normalizeScale = targetSize / maxDim
-            model.scale.setScalar(normalizeScale)
-          }
-
-          // Center the model on its bounding box
-          const centeredBox = new THREE.Box3().setFromObject(model)
           const center = new THREE.Vector3()
-          centeredBox.getCenter(center)
-          model.position.sub(center)
+          box.getCenter(center)
 
-          // Apply per-species rotation correction to align with Three.js -Z forward
-          const rot = def.modelRotation ?? [0, 0, 0]
-          model.rotation.set(rot[0], rot[1], rot[2])
+          const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
+          const targetSize = Math.max(def.bodyLength * 3, def.size * 5)
+          const scale = maxDim > 0 ? targetSize / maxDim : 1
 
-          // Wrap in a group so the position offset and rotation stay local
-          const wrapper = new THREE.Group()
-          wrapper.add(model)
+          const rotation: [number, number, number] = (def.modelRotation ?? [0, 0, 0]) as [number, number, number]
 
-          modelCache.set(id, wrapper)
-          console.log(`Loaded model: ${id} (native size: ${nativeSize.x.toFixed(2)} x ${nativeSize.y.toFixed(2)} x ${nativeSize.z.toFixed(2)}, scaled to ${(def.size * 2).toFixed(2)})`)
+          modelCache.set(id, { scene, scale, rotation, center })
+          console.log(`Loaded model: ${id} (native: ${nativeSize.x.toFixed(2)}x${nativeSize.y.toFixed(2)}x${nativeSize.z.toFixed(2)}, scale: ${scale.toFixed(3)})`)
         })
         .catch(() => {
           failedModels.add(id)
@@ -67,17 +61,38 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
 }
 
 /**
- * Create a fish mesh — uses loaded GLB if available, falls back to procedural.
+ * Create a fish mesh. Uses loaded GLB if available, falls back to procedural.
+ * Each call builds a fresh group — no shared state between fish instances.
  */
 export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
   if (speciesId && modelCache.has(speciesId)) {
-    const source = modelCache.get(speciesId)!
-    const clone = source.clone(true) // recursive clone
-    clone.userData.hasGLB = true
-    return clone
+    return createGLBFishMesh(modelCache.get(speciesId)!)
   }
-
   return createProceduralFishMesh(species)
+}
+
+function createGLBFishMesh(data: ModelData): THREE.Group {
+  // Clone the loaded scene
+  const modelClone = data.scene.clone(true)
+
+  // Apply scale directly to the clone
+  modelClone.scale.setScalar(data.scale)
+
+  // Apply rotation
+  modelClone.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2])
+
+  // Offset to center (in scaled local space, so divide by scale)
+  modelClone.position.set(
+    -data.center.x * data.scale,
+    -data.center.y * data.scale,
+    -data.center.z * data.scale,
+  )
+
+  // Wrap in a fresh group — this group's position/rotation will be controlled by Fish
+  const group = new THREE.Group()
+  group.add(modelClone)
+  group.userData.hasGLB = true
+  return group
 }
 
 /**
@@ -147,14 +162,12 @@ function createProceduralFishMesh(species: SpeciesDefinition): THREE.Group {
 }
 
 /**
- * Animates the fish tail and body wiggle. Call every frame.
- * For GLB models, this is a gentle whole-body sway (the model handles its own shape).
- * For procedural meshes, animates tail and body parts individually.
+ * Animates the fish mesh. Call every frame.
+ * For GLB models: gentle sway on the inner model (outer group controlled by lookAt).
+ * For procedural: animates tail and body parts individually.
  */
 export function animateFishMesh(group: THREE.Group, time: number, speed: number, tailFrequency: number): void {
   if (group.userData.hasGLB) {
-    // Apply sway to the INNER model, not the outer group.
-    // The outer group's rotation is controlled by lookAt (facing movement direction).
     const inner = group.children[0]
     if (inner) {
       inner.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.08 * speed
