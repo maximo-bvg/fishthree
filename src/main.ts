@@ -6,6 +6,7 @@ import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
 import { createLighting, updateCaustics } from './scene/lighting'
+import { DayNightCycle } from './scene/day-night'
 import {
   createParticles, updateParticles,
   createLightRays, updateLightRays,
@@ -67,6 +68,9 @@ composer.addPass(bloomPass)
 
 const underwaterPass = createUnderwaterPass()
 composer.addPass(underwaterPass)
+
+const dayNight = new DayNightCycle(lights, scene)
+dayNight.setUnderwaterPass(underwaterPass)
 
 // Depth-of-field disabled — was blurring fish at different depths
 // const bokehPass = new BokehPass(scene, camera, {
@@ -432,6 +436,10 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05)
   const elapsed = clock.getElapsedTime()
 
+  dayNight.update(dt)
+  for (const fish of fishes) {
+    fish.speedMultiplier = dayNight.speedMultiplier
+  }
   updateFishBehaviors(dt)
   updateWaterSurface(tankMeshes, dt, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)
