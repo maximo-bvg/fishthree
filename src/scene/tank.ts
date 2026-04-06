@@ -98,7 +98,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
 
   // Floor — sandy color
   const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0xc4a35a })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x9a7a45, roughness: 0.95 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = -TANK.height / 2
@@ -108,11 +108,11 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const waterSurface = new Water(waterGeo, {
-    color: 0x1a6a9a,
-    scale: 7,
-    flowDirection: new THREE.Vector2(2.0, 1.2),
-    flowSpeed: 0.15,
-    reflectivity: 0.4,
+    color: 0x0d4a6a,
+    scale: 1,
+    flowDirection: new THREE.Vector2(0.15, 0.1),
+    flowSpeed: 0.01,
+    reflectivity: 0.6,
     textureWidth: 512,
     textureHeight: 512,
   })

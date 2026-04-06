@@ -392,13 +392,13 @@ export function createUnderwaterPass(): ShaderPass {
 
         vec4 color = texture2D(tDiffuse, uv);
 
-        // Underwater color grading — tint toward deep blue-green
-        vec3 waterTint = vec3(0.05, 0.25, 0.4);
-        color.rgb = mix(color.rgb, waterTint, 0.15);
+        // Underwater color grading — tint toward blue-green
+        vec3 waterTint = vec3(0.1, 0.35, 0.55);
+        color.rgb = mix(color.rgb, waterTint, 0.25);
 
-        // Slight desaturation — water absorbs warm colors
+        // Desaturation — water absorbs warm colors
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.6, 0.8, 1.0), 0.1);
+        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.5, 0.75, 1.0), 0.2);
 
         gl_FragColor = color;
       }

@@ -8,11 +8,15 @@ export interface Lights {
 }
 
 export function createLighting(scene: THREE.Scene): Lights {
-  const ambient = new THREE.AmbientLight(0xaaddee, 3.0)
+  const ambient = new THREE.AmbientLight(0xaaddee, 4.0)
   scene.add(ambient)
 
-  const overhead = new THREE.DirectionalLight(0xffffff, 3.0)
-  overhead.position.set(0, TANK.height, 2)
+  // Hemisphere light — bright from top, moderate from below, fills the whole tank
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x446688, 8.0)
+  scene.add(hemi)
+
+  const overhead = new THREE.DirectionalLight(0xffffff, 2.85)
+  overhead.position.set(0, TANK.height, 0)
   overhead.target.position.set(0, -TANK.height / 2, 0)
   overhead.castShadow = true
   overhead.shadow.mapSize.width = 1024
