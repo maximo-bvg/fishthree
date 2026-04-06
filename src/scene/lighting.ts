@@ -44,6 +44,13 @@ export function createLighting(scene: THREE.Scene): Lights {
   rightFill.position.set(TANK.width / 2, 1, 0)
   scene.add(rightFill)
 
+  // Bottom light — shines upward from the floor
+  const bottomLight = new THREE.DirectionalLight(0x88bbdd, 3.0)
+  bottomLight.position.set(0, -TANK.height / 2, 0)
+  bottomLight.target.position.set(0, TANK.height, 0)
+  scene.add(bottomLight)
+  scene.add(bottomLight.target)
+
   const causticLight = new THREE.SpotLight(0x66ccff, 0.8, 20, Math.PI / 4, 0.5)
   causticLight.position.set(0, TANK.height / 2 + 1, 0)
   causticLight.target.position.set(0, -TANK.height / 2, 0)
