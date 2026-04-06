@@ -28,13 +28,14 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
             }
           })
 
-          // Auto-normalize: scale so the model's largest dimension equals species.size * 2
+          // Auto-normalize: scale so the model's largest dimension matches the procedural fish size
+          // Procedural fish bodies are ~bodyLength*2 + tail, so we target bodyLength * 3
           const box = new THREE.Box3().setFromObject(model)
           const nativeSize = new THREE.Vector3()
           box.getSize(nativeSize)
           const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
           if (maxDim > 0) {
-            const targetSize = def.size * 2
+            const targetSize = Math.max(def.bodyLength * 3, def.size * 5)
             const normalizeScale = targetSize / maxDim
             model.scale.setScalar(normalizeScale)
           }
@@ -67,9 +68,7 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
 export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
   if (speciesId && modelCache.has(speciesId)) {
     const source = modelCache.get(speciesId)!
-    const clone = source.clone()
-    // Deep clone children so each fish instance is independent
-    clone.children = source.children.map(c => c.clone())
+    const clone = source.clone(true) // recursive clone
     clone.userData.hasGLB = true
     return clone
   }
