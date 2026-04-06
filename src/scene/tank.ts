@@ -118,7 +118,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   })
   waterSurface.rotation.x = -Math.PI / 2
   waterSurface.position.y = TANK.height / 2
-  waterSurface.material.side = THREE.BackSide
+  waterSurface.material.side = THREE.DoubleSide
   scene.add(waterSurface)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level

@@ -149,6 +149,10 @@ export class Fish {
     return this.mesh.position
   }
 
+  setName(name: string): void {
+    this.name = name
+  }
+
   update(dt: number): void {
     this.time += dt
     this.applyWallAvoidance()

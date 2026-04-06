@@ -260,6 +260,12 @@ function removeFish(index: number): void {
 const panelCallbacks: PanelCallbacks = {
   onAddFish: (speciesId, name) => { addFish(speciesId, name) },
   onRemoveFish: (index) => { removeFish(index) },
+  onRenameFish: (index, name) => {
+    if (index >= 0 && index < fishes.length) {
+      fishes[index].setName(name)
+      persistState()
+    }
+  },
   onToggleCaustics: (on) => {
     settings.caustics = on
     lights.causticLight.visible = on
@@ -583,6 +589,9 @@ function animate() {
   updateBubbles(elapsed, dt, camera)
   updateCausticOverlays(elapsed)
   updateUnderwaterPass(underwaterPass, elapsed)
+
+  // Hide water surface when camera is above it to prevent Water2 render state corruption
+  tankMeshes.waterSurface.visible = camera.position.y < TANK.height / 2
 
   bloomPass.enabled = settings.bloom
   composer.render()

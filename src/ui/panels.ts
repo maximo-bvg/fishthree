@@ -5,6 +5,7 @@ import { type HUD } from './hud'
 export interface PanelCallbacks {
   onAddFish: (speciesId: SpeciesId, name: string) => void
   onRemoveFish: (index: number) => void
+  onRenameFish: (index: number, name: string) => void
   onToggleCaustics: (on: boolean) => void
   onToggleBloom: (on: boolean) => void
   onSwayIntensity: (value: number) => void
@@ -28,7 +29,7 @@ export function showFishListPanel(hud: HUD, fishes: Fish[], callbacks: PanelCall
     html += `
       <div class="fish-item">
         <div class="fish-item-color" style="background:${color}"></div>
-        <span class="fish-item-name">${fish.name}</span>
+        <input class="fish-item-name-input" value="${fish.name}" data-rename="${i}" style="background:transparent;border:1px solid transparent;color:inherit;font:inherit;padding:2px 4px;border-radius:3px;width:80px;cursor:pointer;" onfocus="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='rgba(255,255,255,0.1)'" onblur="this.style.borderColor='transparent';this.style.background='transparent'" />
         <span class="fish-item-species">${fish.species.name}</span>
         <button class="sidebar-btn" style="width:24px;height:24px;font-size:12px;margin-left:4px" data-remove="${i}">&times;</button>
       </div>
@@ -43,6 +44,14 @@ export function showFishListPanel(hud: HUD, fishes: Fish[], callbacks: PanelCall
       const idx = parseInt((btn as HTMLElement).dataset.remove!, 10)
       callbacks.onRemoveFish(idx)
       showFishListPanel(hud, fishes, callbacks)
+    })
+  })
+
+  panel.querySelectorAll('[data-rename]').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt((input as HTMLInputElement).dataset.rename!, 10)
+      const newName = (input as HTMLInputElement).value.trim()
+      if (newName) callbacks.onRenameFish(idx, newName)
     })
   })
 }
