@@ -108,6 +108,6 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.12,
     modelPath: '/models/seahorse.glb',
     modelScale: 0.25,
-    modelRotation: [Math.PI, Math.PI, 0],  // flip upright + face forward
+    modelRotation: [Math.PI, 0, 0],  // flip upright only — wrapper handles facing direction
   },
 }
