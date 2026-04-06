@@ -176,7 +176,7 @@ window.addEventListener('click', (e) => {
         const newSlot = slotManager.getSlot(slotIndex)
         if (newSlot.mesh) {
           scene.add(newSlot.mesh)
-          effects.register(selectedDecorationId, newSlot.mesh)
+          effects.register(selectedDecorationId, newSlot.mesh, SLOT_DEFINITIONS[slotIndex].zone)
         }
       }
     }
@@ -397,7 +397,7 @@ function restoreState(): void {
     const mesh = meshes[i]
     if (mesh) {
       scene.add(mesh)
-      effects.register(state.decorations[i].decorationId, mesh)
+      effects.register(state.decorations[i].decorationId, mesh, SLOT_DEFINITIONS[state.decorations[i].slotIndex].zone)
     }
   }
 

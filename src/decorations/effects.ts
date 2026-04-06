@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { type DecorationId } from './catalog'
+import { type SlotZone } from './slots'
 import { TANK } from '../scene/tank'
 
 interface BubbleParticle {
@@ -20,7 +21,7 @@ export class DecorationEffects {
     this.scene = scene
   }
 
-  register(decorationId: DecorationId, mesh: THREE.Group): void {
+  register(decorationId: DecorationId, mesh: THREE.Group, zone?: SlotZone): void {
     switch (decorationId) {
       case 'seaweed':
         this.swayingMeshes.push({ mesh, speed: 1.5, amplitude: 0.1 })
@@ -35,7 +36,7 @@ export class DecorationEffects {
         this.addBubbler(mesh.position.clone().add(new THREE.Vector3(0, 0.15, 0)))
         break
       case 'tank_light':
-        this.addSpotlight(mesh)
+        this.addSpotlight(mesh, zone)
         break
       case 'brain_coral':
         this.swayingMeshes.push({ mesh, speed: 0.3, amplitude: 0.02 })
@@ -76,13 +77,27 @@ export class DecorationEffects {
     this.bubblers.push({ origin, particles })
   }
 
-  private addSpotlight(mesh: THREE.Group): void {
+  private addSpotlight(mesh: THREE.Group, zone?: SlotZone): void {
     const position = mesh.position
+    const isFloor = zone === 'floor_back' || zone === 'floor_front'
+    const isWall = zone === 'wall_upper' || zone === 'wall_lower'
+    // Direction: floor points up, wall points forward, ceiling points down
+    const dirY = isFloor ? 1 : -1
+    const dirZ = isWall ? 1 : 0
+
+    // Rotate the decoration mesh to face the right way
+    if (isFloor) {
+      mesh.rotation.x = Math.PI // flip upside down so lens faces up
+    }
 
     // Strong spotlight that's visible at night
     const light = new THREE.SpotLight(0xffffaa, 3.0, 6, Math.PI / 5, 0.4)
     light.position.copy(position)
-    light.target.position.set(position.x, position.y - 4, position.z)
+    light.target.position.set(
+      position.x,
+      position.y + dirY * 4,
+      position.z + dirZ * 4,
+    )
     this.scene.add(light)
     this.scene.add(light.target)
     this.spotlights.push(light)
@@ -101,7 +116,15 @@ export class DecorationEffects {
     })
     const cone = new THREE.Mesh(coneGeo, coneMat)
     cone.position.copy(position)
-    cone.position.y -= coneHeight / 2 + 0.1
+    if (isWall) {
+      cone.rotation.x = Math.PI / 2 // rotate cone to point forward (+Z)
+      cone.position.z += coneHeight / 2 + 0.1
+    } else if (isFloor) {
+      cone.rotation.x = Math.PI // flip cone to point up
+      cone.position.y += coneHeight / 2 + 0.1
+    } else {
+      cone.position.y -= coneHeight / 2 + 0.1
+    }
     this.scene.add(cone)
     this.lightCones.push(cone)
 
