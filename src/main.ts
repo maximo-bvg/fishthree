@@ -4,7 +4,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { createTank, updateWaterSurface, TANK } from './scene/tank'
-import { createCamera, updateParallax } from './scene/camera'
+import { createCamera } from './scene/camera'
+import { CameraController } from './scene/camera-modes'
 import { createLighting, updateCaustics } from './scene/lighting'
 import {
   createParticles, updateParticles,
@@ -45,6 +46,7 @@ scene.background = new THREE.Color(0x2a7abb)
 scene.fog = new THREE.FogExp2(0x1a7aaa, 0.05)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
+const cameraController = new CameraController(camera, renderer.domElement)
 const tankMeshes = createTank(scene)
 const lights = createLighting(scene)
 
@@ -176,6 +178,43 @@ window.addEventListener('click', (e) => {
   }
 })
 
+// --- Fish click handler (camera follow) ---
+window.addEventListener('click', (e) => {
+  if (isEditMode) return
+
+  raycaster.setFromCamera(
+    new THREE.Vector2(
+      (e.clientX / window.innerWidth) * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1,
+    ),
+    camera,
+  )
+
+  const fishMeshes = fishes.map(f => f.mesh)
+  const hits = raycaster.intersectObjects(fishMeshes, true)
+  if (hits.length > 0) {
+    // Find which fish owns the hit mesh
+    const hitObj = hits[0].object
+    const fish = fishes.find(f => {
+      let obj: THREE.Object3D | null = hitObj
+      while (obj) {
+        if (obj === f.mesh) return true
+        obj = obj.parent
+      }
+      return false
+    })
+    if (fish) {
+      cameraController.toFollow(fish.mesh)
+      return
+    }
+  }
+
+  // Clicked empty space — if in follow mode, return to default
+  if (cameraController.mode === 'follow') {
+    cameraController.toDefault()
+  }
+})
+
 // --- Fish management ---
 function addFish(speciesId: SpeciesId, name: string): void {
   if (fishes.length >= MAX_FISH) return
@@ -190,6 +229,7 @@ function removeFish(index: number): void {
   if (index < 0 || index >= fishes.length) return
   const fish = fishes.splice(index, 1)[0]
   scene.remove(fish.mesh)
+  cameraController.onFollowTargetRemoved()
   updateHUDCounts()
   persistState()
 }
@@ -225,6 +265,8 @@ const hud = new HUD(app, {
   onFishList: () => showFishListPanel(hud, fishes, panelCallbacks),
   onAddFish: () => showAddFishPanel(hud, fishes.length, MAX_FISH, panelCallbacks),
   onScreenshot: panelCallbacks.onScreenshot,
+  onOrbitToggle: () => cameraController.toOrbit(),
+  onResetCamera: () => cameraController.toDefault(),
   onSettings: () => showSettingsPanel(hud, settings, panelCallbacks),
   onTankNameChange: (name) => {
     tankName = name
@@ -435,7 +477,7 @@ function animate() {
   updateFishBehaviors(dt)
   updateWaterSurface(tankMeshes, dt, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)
-  updateParallax(camera)
+  cameraController.update(dt)
   effects.update(elapsed)
   updateParticles(elapsed, dt)
   updateLightRays(lightRays, elapsed)
