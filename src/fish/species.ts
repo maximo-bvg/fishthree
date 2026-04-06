@@ -90,7 +90,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.9,
     modelPath: '/models/barracuda.glb',
     modelScale: 0.6,
-    modelRotation: [Math.PI, Math.PI, 0],  // flip upright + face forward
+    modelRotation: [Math.PI, 0, 0],  // flip upright only — native forward is already correct
   },
   seahorse: {
     name: 'Seahorse',
