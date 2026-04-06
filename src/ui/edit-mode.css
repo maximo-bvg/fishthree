@@ -1,0 +1,104 @@
+.edit-mode-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(0deg, rgba(10, 25, 50, 0.95), rgba(10, 25, 50, 0.85));
+  border-top: 1px solid rgba(100, 180, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 60px;
+  gap: 8px;
+}
+
+.edit-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.edit-tab {
+  padding: 4px 14px;
+  border-radius: 6px 6px 0 0;
+  border: 1px solid rgba(100, 180, 255, 0.3);
+  border-bottom: none;
+  background: rgba(30, 60, 100, 0.4);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.edit-tab.active {
+  background: rgba(50, 100, 180, 0.7);
+  border-color: rgba(100, 180, 255, 0.6);
+}
+
+.edit-items {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex: 1;
+  align-items: center;
+}
+
+.edit-item {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  border: 2px solid rgba(100, 180, 255, 0.3);
+  background: rgba(30, 60, 100, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.edit-item:hover {
+  border-color: rgba(100, 180, 255, 0.7);
+  background: rgba(50, 100, 180, 0.6);
+}
+
+.edit-item.selected {
+  border-color: #22aa55;
+  background: rgba(34, 170, 85, 0.2);
+}
+
+.edit-item-icon {
+  font-size: 24px;
+}
+
+.edit-item-name {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.edit-done-btn {
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #22aa55, #1b8844);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.edit-done-btn:hover {
+  background: linear-gradient(135deg, #2bc866, #22aa55);
+}
+
+.edit-dim-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
