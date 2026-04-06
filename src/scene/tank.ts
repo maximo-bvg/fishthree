@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Water } from 'three/examples/jsm/objects/Water.js'
+import { Water } from 'three/examples/jsm/objects/Water2.js'
 
 export const TANK = {
   width: 16,
@@ -105,25 +105,20 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   floor.receiveShadow = true
   scene.add(floor)
 
-  // Water surface — Three.js Water with reflections + animated normals
+  // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const waterSurface = new Water(waterGeo, {
+    color: 0x0a5088,
+    scale: 4,
+    flowDirection: new THREE.Vector2(0.5, 0.3),
+    flowSpeed: 0.03,
+    reflectivity: 0.02,
     textureWidth: 512,
     textureHeight: 512,
-    waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', (tex) => {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-    }),
-    sunDirection: new THREE.Vector3(0, 1, 0),
-    sunColor: 0xffffff,
-    waterColor: 0x0a5088,
-    distortionScale: 2.0,
-    alpha: 0.85,
-    fog: false,
-    side: THREE.DoubleSide,
   })
   waterSurface.rotation.x = -Math.PI / 2
   waterSurface.position.y = TANK.height / 2
-  waterSurface.material.uniforms['size'].value = 4.0
+  waterSurface.material.side = THREE.DoubleSide
   scene.add(waterSurface)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level
@@ -240,9 +235,6 @@ export function createTank(scene: THREE.Scene): TankMeshes {
 }
 
 export function updateWaterSurface(meshes: TankMeshes, dt: number, time: number): void {
-  // Three.js Water — increment time for wave animation
-  meshes.waterSurface.material.uniforms['time'].value += dt
-
   ;(meshes.frontGlass.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   for (const wl of meshes.waterLines) {
     ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time
