@@ -153,8 +153,12 @@ function createProceduralFishMesh(species: SpeciesDefinition): THREE.Group {
  */
 export function animateFishMesh(group: THREE.Group, time: number, speed: number, tailFrequency: number): void {
   if (group.userData.hasGLB) {
-    // Gentle whole-body sway for loaded models
-    group.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.04 * speed
+    // Apply sway to the INNER model, not the outer group.
+    // The outer group's rotation is controlled by lookAt (facing movement direction).
+    const inner = group.children[0]
+    if (inner) {
+      inner.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.08 * speed
+    }
     return
   }
 
