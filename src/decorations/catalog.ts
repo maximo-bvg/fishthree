@@ -16,6 +16,7 @@ export type DecorationId =
   | 'boulder' | 'rock_arch' | 'driftwood'
   | 'bubbler' | 'tank_light'
   | 'treasure_chest' | 'diver' | 'sunken_ship'
+  | 'brain_coral' | 'kelp' | 'coral_cluster' | 'volcano_bubbler' | 'treasure_map'
 
 function createSeaweed(): THREE.Group {
   const group = new THREE.Group()
@@ -216,6 +217,78 @@ function createSunkenShip(): THREE.Group {
   return group
 }
 
+function createBrainCoral(): THREE.Group {
+  const group = new THREE.Group()
+  const geo = new THREE.SphereGeometry(0.4, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2)
+  jitterVertices(geo, 0.04)
+  const mesh = new THREE.Mesh(geo, lowPolyMaterial(0xee8866))
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  group.add(mesh)
+  return group
+}
+
+function createKelp(): THREE.Group {
+  const group = new THREE.Group()
+  const mat = lowPolyMaterial(0x337733)
+  const segments = 8
+  for (let i = 0; i < segments; i++) {
+    const radius = 0.1 - i * 0.008
+    const geo = new THREE.CylinderGeometry(radius, radius + 0.015, 0.3, 5)
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.y = i * 0.27
+    mesh.castShadow = true
+    group.add(mesh)
+  }
+  return group
+}
+
+function createCoralCluster(): THREE.Group {
+  const group = new THREE.Group()
+  const colors = [0xff6655, 0xffaa44, 0xff88aa]
+  const heights = [0.5, 0.35, 0.45, 0.3]
+  for (let i = 0; i < heights.length; i++) {
+    const geo = new THREE.CylinderGeometry(0.06, 0.08, heights[i], 5)
+    const mesh = new THREE.Mesh(geo, lowPolyMaterial(colors[i % colors.length]))
+    const angle = (i / heights.length) * Math.PI * 2
+    mesh.position.set(Math.cos(angle) * 0.12, heights[i] / 2, Math.sin(angle) * 0.12)
+    mesh.castShadow = true
+    group.add(mesh)
+  }
+  return group
+}
+
+function createVolcanoBubbler(): THREE.Group {
+  const group = new THREE.Group()
+  const coneGeo = new THREE.ConeGeometry(0.4, 0.8, 6)
+  const cone = new THREE.Mesh(coneGeo, lowPolyMaterial(0x444444))
+  cone.position.y = 0.4
+  cone.castShadow = true
+  group.add(cone)
+  // Crater at top
+  const craterGeo = new THREE.CylinderGeometry(0.15, 0.1, 0.1, 6)
+  const crater = new THREE.Mesh(craterGeo, lowPolyMaterial(0x332211))
+  crater.position.y = 0.8
+  group.add(crater)
+  return group
+}
+
+function createTreasureMap(): THREE.Group {
+  const group = new THREE.Group()
+  const geo = new THREE.PlaneGeometry(0.5, 0.4)
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xddcc88,
+    side: THREE.DoubleSide,
+    roughness: 0.9,
+  })
+  const mesh = new THREE.Mesh(geo, mat)
+  mesh.rotation.x = -Math.PI / 2 + 0.05 // nearly flat on floor
+  mesh.position.y = 0.02
+  mesh.castShadow = true
+  group.add(mesh)
+  return group
+}
+
 export const DECORATIONS: Record<DecorationId, DecorationDefinition> = {
   seaweed:        { name: 'Seaweed',        category: 'plants',      size: 'medium', createMesh: createSeaweed },
   coral_fan:      { name: 'Coral Fan',      category: 'plants',      size: 'medium', createMesh: createCoralFan },
@@ -228,4 +301,9 @@ export const DECORATIONS: Record<DecorationId, DecorationDefinition> = {
   treasure_chest: { name: 'Treasure Chest', category: 'fun',         size: 'medium', createMesh: createTreasureChest },
   diver:          { name: 'Diver',          category: 'fun',         size: 'small',  createMesh: createDiver },
   sunken_ship:    { name: 'Sunken Ship',    category: 'fun',         size: 'large',  createMesh: createSunkenShip },
+  brain_coral:      { name: 'Brain Coral',      category: 'plants',      size: 'medium', createMesh: createBrainCoral },
+  kelp:             { name: 'Kelp',             category: 'plants',      size: 'medium', createMesh: createKelp },
+  coral_cluster:    { name: 'Coral Cluster',    category: 'rocks',       size: 'medium', createMesh: createCoralCluster },
+  volcano_bubbler:  { name: 'Volcano Bubbler',  category: 'accessories', size: 'medium', createMesh: createVolcanoBubbler },
+  treasure_map:     { name: 'Treasure Map',     category: 'fun',         size: 'small',  createMesh: createTreasureMap },
 }

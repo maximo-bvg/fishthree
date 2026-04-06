@@ -19,6 +19,7 @@ import { preloadModels } from './fish/mesh'
 import {
   updateWander, updateSchool, updateFlee, updateHide,
   updateTerritorial, updatePredatorPatrol, updateReact,
+  updateBottomDwell, updateDrift, updateSurfaceSwim,
 } from './fish/behaviors'
 import { SlotManager, SLOT_DEFINITIONS } from './decorations/slots'
 import { type DecorationId } from './decorations/catalog'
@@ -387,12 +388,20 @@ function updateFishBehaviors(dt: number): void {
       case 'idle':
         if (fish.species.behaviorType === 'predator') {
           updatePredatorPatrol(fish, dt)
+        } else if (fish.species.behaviorType === 'bottom-dweller') {
+          updateBottomDwell(fish, dt)
+        } else if (fish.species.behaviorType === 'drifter') {
+          updateDrift(fish, dt)
         } else {
           updateWander(fish, dt)
         }
         break
       case 'school':
-        updateSchool(fish, school, dt)
+        if (fish.species.behaviorType === 'surface-swimmer') {
+          updateSurfaceSwim(fish, school, dt)
+        } else {
+          updateSchool(fish, school, dt)
+        }
         break
       case 'flee':
         updateFlee(fish, threats, dt)

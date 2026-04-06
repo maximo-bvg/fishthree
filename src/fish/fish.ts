@@ -74,6 +74,18 @@ export class FishStateMachine {
           return
         }
         break
+      case 'bottom-dweller':
+        this.current = 'wander' // uses custom wander function in main
+        return
+      case 'drifter':
+        this.current = 'wander' // uses custom drift function in main
+        return
+      case 'surface-swimmer':
+        if (hasSchoolmates) {
+          this.current = 'school' // uses custom surface school in main
+          return
+        }
+        break
     }
 
     // Default: idle -> wander cycle

@@ -137,6 +137,9 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
  * Each call builds a fresh group — no shared state between fish instances.
  */
 export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
+  if (speciesId === 'jellyfish') {
+    return createJellyfishMesh(species)
+  }
   if (speciesId && modelCache.has(speciesId)) {
     return createGLBFishMesh(modelCache.get(speciesId)!, species)
   }
@@ -183,6 +186,56 @@ function createGLBFishMesh(data: ModelData, species: SpeciesDefinition): THREE.G
   const bones = discoverBones(modelClone)
   if (bones) group.userData.bones = bones
 
+  return group
+}
+
+function createJellyfishMesh(species: SpeciesDefinition): THREE.Group {
+  const group = new THREE.Group()
+
+  // Bell — half-sphere
+  const bellGeo = new THREE.SphereGeometry(0.3, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2)
+  const bellMat = new THREE.MeshStandardMaterial({
+    color: species.color,
+    transparent: true,
+    opacity: 0.6,
+    side: THREE.DoubleSide,
+  })
+  const bell = new THREE.Mesh(bellGeo, bellMat)
+  bell.name = 'bell'
+  bell.castShadow = true
+  group.add(bell)
+
+  // Tentacles — 8 thin cylinders
+  const tentacleCount = 8
+  const tentacleMat = new THREE.MeshStandardMaterial({
+    color: species.color,
+    transparent: true,
+    opacity: 0.4,
+  })
+  for (let i = 0; i < tentacleCount; i++) {
+    const angle = (i / tentacleCount) * Math.PI * 2
+    const radius = 0.15
+    const tentacle = new THREE.Group()
+    tentacle.name = `tentacle_${i}`
+
+    // 3 segments per tentacle for sway
+    for (let s = 0; s < 3; s++) {
+      const segGeo = new THREE.CylinderGeometry(0.015, 0.01, 0.2, 4)
+      const seg = new THREE.Mesh(segGeo, tentacleMat)
+      seg.position.y = -s * 0.18
+      seg.name = `seg_${s}`
+      tentacle.add(seg)
+    }
+
+    tentacle.position.set(
+      Math.cos(angle) * radius,
+      -0.05,
+      Math.sin(angle) * radius,
+    )
+    group.add(tentacle)
+  }
+
+  group.userData.isJellyfish = true
   return group
 }
 
@@ -258,6 +311,26 @@ function createProceduralFishMesh(species: SpeciesDefinition): THREE.Group {
  * For procedural: animates tail and body parts individually.
  */
 export function animateFishMesh(group: THREE.Group, time: number, speed: number, tailFrequency: number): void {
+  if (group.userData.isJellyfish) {
+    // Bell pulsing
+    const bell = group.getObjectByName('bell')
+    if (bell) {
+      bell.scale.y = 0.9 + Math.sin(time * tailFrequency * Math.PI * 2) * 0.1
+    }
+    // Tentacle sway
+    for (const child of group.children) {
+      if (child.name.startsWith('tentacle_')) {
+        const idx = parseInt(child.name.split('_')[1])
+        for (const seg of child.children) {
+          const s = parseInt(seg.name.split('_')[1])
+          seg.rotation.x = Math.sin(time * 1.5 + idx * 0.8 + s * 0.5) * 0.15 * (s + 1)
+          seg.rotation.z = Math.cos(time * 1.2 + idx * 0.6 + s * 0.3) * 0.1 * (s + 1)
+        }
+      }
+    }
+    return
+  }
+
   if (group.userData.hasGLB) {
     const inner = group.children[0]
     // Subtle whole-body roll (reduced — bones handle the main motion now)

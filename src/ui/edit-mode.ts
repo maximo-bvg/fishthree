@@ -20,6 +20,11 @@ const ITEM_ICONS: Partial<Record<DecorationId, string>> = {
   treasure_chest: '\u{1F4E6}',
   diver: '\u{1F93F}',
   sunken_ship: '\u{26F5}',
+  brain_coral: '\u{1F9E0}',
+  kelp: '\u{1F33F}',
+  coral_cluster: '\u{1FAB8}',
+  volcano_bubbler: '\u{1F30B}',
+  treasure_map: '\u{1F5FA}',
 }
 
 export interface EditModeCallbacks {

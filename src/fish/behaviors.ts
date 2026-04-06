@@ -118,3 +118,74 @@ export function updateReact(fish: Fish, mouseWorldPos: THREE.Vector3, _dt: numbe
   _dir.normalize().multiplyScalar(fish.species.speed * 0.8)
   fish.targetVelocity.copy(_dir)
 }
+
+export function updateBottomDwell(fish: Fish, dt: number): void {
+  // Stay near the floor
+  const floorY = -TANK.height / 2
+  const ceilingY = floorY + TANK.height * 0.2
+
+  // Slow wandering along the floor
+  if (fish.targetVelocity.lengthSq() < 0.01 || Math.random() < dt * 0.3) {
+    fish.targetVelocity.set(
+      (Math.random() - 0.5) * fish.species.speed * 2,
+      0,
+      (Math.random() - 0.5) * fish.species.speed * 0.6,
+    )
+  }
+
+  // Pull toward floor if too high
+  if (fish.position.y > ceilingY) {
+    fish.targetVelocity.y = -fish.species.speed * 0.5
+  } else if (fish.position.y < floorY + fish.species.size) {
+    fish.targetVelocity.y = fish.species.speed * 0.2
+  } else {
+    fish.targetVelocity.y *= 0.9 // damp vertical movement
+  }
+}
+
+export function updateDrift(fish: Fish, dt: number): void {
+  // Very slow direction changes
+  if (Math.random() < dt * 0.15) {
+    fish.targetVelocity.set(
+      (Math.random() - 0.5) * fish.species.speed * 1.5,
+      (Math.random() - 0.5) * fish.species.speed * 0.5,
+      (Math.random() - 0.5) * fish.species.speed * 0.5,
+    )
+  }
+
+  // Stay in upper 60% of tank
+  const minY = -TANK.height / 2 + TANK.height * 0.4
+  if (fish.position.y < minY) {
+    fish.targetVelocity.y = fish.species.speed * 0.3
+  }
+}
+
+export function updateSurfaceSwim(fish: Fish, school: Fish[], dt: number): void {
+  // Loose schooling with other surface swimmers
+  if (school.length > 0) {
+    const agents = school.map(f => ({ position: f.position, velocity: f.velocity }))
+    const self = { position: fish.position, velocity: fish.velocity }
+    const force = computeBoids(self, agents, { ...BOIDS_DEFAULTS, separationDist: 2.0 })
+    fish.targetVelocity.copy(fish.velocity).add(force)
+
+    if (fish.targetVelocity.lengthSq() < 0.1) {
+      fish.targetVelocity.set(
+        (Math.random() - 0.5) * 2,
+        0,
+        (Math.random() - 0.5) * 0.6,
+      )
+    }
+    fish.targetVelocity.normalize().multiplyScalar(fish.species.speed)
+  } else {
+    updateWander(fish, dt)
+  }
+
+  // Stay in top 20% of tank
+  const surfaceY = TANK.height / 2
+  const minY = surfaceY - TANK.height * 0.2
+  if (fish.position.y < minY) {
+    fish.targetVelocity.y = fish.species.speed * 0.5
+  } else if (fish.position.y > surfaceY - fish.species.size) {
+    fish.targetVelocity.y = -fish.species.speed * 0.2
+  }
+}
