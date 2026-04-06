@@ -3,7 +3,7 @@ import { type SpeciesId, type SpeciesDefinition, type BehaviorType, SPECIES } fr
 import { createFishMesh, animateFishMesh } from './mesh'
 import { TANK } from '../scene/tank'
 
-export type FishState = 'idle' | 'wander' | 'school' | 'flee' | 'hide' | 'territorial' | 'react'
+export type FishState = 'idle' | 'wander' | 'school' | 'flee' | 'hide' | 'territorial' | 'react' | 'feed'
 
 const FLEE_THRESHOLD = 3.0
 const REACT_THRESHOLD = 2.0
@@ -19,6 +19,7 @@ export interface StateContext {
   school: ProximityInfo[]
   mouse: ProximityInfo | null
   homeDecor: ProximityInfo | null
+  nearestFlake: { distance: number } | null
 }
 
 export class FishStateMachine {
@@ -51,6 +52,14 @@ export class FishStateMachine {
     // Mouse reaction
     if (hasMouseNear && this.current !== 'flee' && this.current !== 'hide') {
       this.current = 'react'
+      return
+    }
+
+    // Feed — if food is nearby and not fleeing/hiding
+    const hasNearFlake = ctx.nearestFlake !== null && ctx.nearestFlake.distance < 4.0
+    if (hasNearFlake && this.current !== 'flee' && this.current !== 'hide'
+        && this.behaviorType !== 'predator') {
+      this.current = 'feed'
       return
     }
 
@@ -97,6 +106,7 @@ export class Fish {
   stateMachine: FishStateMachine
   velocity: THREE.Vector3
   targetVelocity: THREE.Vector3
+  targetFlakeId: number | null = null
 
   private time = Math.random() * 100
 

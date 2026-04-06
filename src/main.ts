@@ -19,8 +19,9 @@ import { type SpeciesId, SPECIES } from './fish/species'
 import { preloadModels } from './fish/mesh'
 import {
   updateWander, updateSchool, updateFlee, updateHide,
-  updateTerritorial, updatePredatorPatrol, updateReact,
+  updateTerritorial, updatePredatorPatrol, updateReact, updateFeed,
 } from './fish/behaviors'
+import { FlakeManager } from './feeding/flakes'
 import { SlotManager, SLOT_DEFINITIONS } from './decorations/slots'
 import { type DecorationId } from './decorations/catalog'
 import { DecorationEffects } from './decorations/effects'
@@ -80,6 +81,7 @@ composer.addPass(underwaterPass)
 
 const slotManager = new SlotManager()
 const effects = new DecorationEffects(scene)
+const flakeManager = new FlakeManager(scene)
 
 // --- State ---
 const fishes: Fish[] = []
@@ -178,7 +180,10 @@ window.addEventListener('click', (e) => {
   }
 })
 
-// --- Fish click handler (camera follow) ---
+// --- Fish click + feed handler ---
+const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TANK.height / 2)
+const waterIntersect = new THREE.Vector3()
+
 window.addEventListener('click', (e) => {
   if (isEditMode) return
 
@@ -190,10 +195,10 @@ window.addEventListener('click', (e) => {
     camera,
   )
 
+  // Try fish click first (camera follow)
   const fishMeshes = fishes.map(f => f.mesh)
   const hits = raycaster.intersectObjects(fishMeshes, true)
   if (hits.length > 0) {
-    // Find which fish owns the hit mesh
     const hitObj = hits[0].object
     const fish = fishes.find(f => {
       let obj: THREE.Object3D | null = hitObj
@@ -209,9 +214,20 @@ window.addEventListener('click', (e) => {
     }
   }
 
-  // Clicked empty space — if in follow mode, return to default
+  // If in follow mode, clicking empty space returns to default
   if (cameraController.mode === 'follow') {
     cameraController.toDefault()
+    return
+  }
+
+  // Otherwise, try feeding — click water surface to spawn flakes
+  if (raycaster.ray.intersectPlane(waterPlane, waterIntersect)) {
+    if (
+      Math.abs(waterIntersect.x) < TANK.width / 2 &&
+      Math.abs(waterIntersect.z) < TANK.depth / 2
+    ) {
+      flakeManager.spawnCluster(waterIntersect.clone())
+    }
   }
 })
 
@@ -380,6 +396,7 @@ function updateFishBehaviors(dt: number): void {
   const decorPositions = getDecorationPositions()
   const rockPositions = getRockPositions()
   const plantPositions = getPlantPositions()
+  const activeFlakes = flakeManager.getActiveFlakes()
 
   for (const fish of fishes) {
     const threats: THREE.Vector3[] = []
@@ -414,12 +431,25 @@ function updateFishBehaviors(dt: number): void {
       }
     }
 
+    let nearestFlakeDist = Infinity
+    let nearestFlakePos: THREE.Vector3 | null = null
+    let nearestFlakeId: number | null = null
+    for (const flake of activeFlakes) {
+      const d = fish.position.distanceTo(flake.position)
+      if (d < nearestFlakeDist) {
+        nearestFlakeDist = d
+        nearestFlakePos = flake.position
+        nearestFlakeId = flake.id
+      }
+    }
+
     const ctx: StateContext = {
       threats: threats.map(t => ({ distance: fish.position.distanceTo(t) })),
       shelters: shelters.map(s => ({ distance: fish.position.distanceTo(s) })),
       school: school.map(s => ({ distance: fish.position.distanceTo(s.position) })),
       mouse: mouseDist < 3.0 ? { distance: mouseDist } : null,
       homeDecor: nearestHomePos ? { distance: nearestHomeDist } : null,
+      nearestFlake: nearestFlakePos ? { distance: nearestFlakeDist } : null,
     }
 
     fish.stateMachine.update(dt, ctx)
@@ -452,6 +482,20 @@ function updateFishBehaviors(dt: number): void {
       case 'react':
         updateReact(fish, mouseWorld, dt)
         break
+      case 'feed':
+        if (nearestFlakePos && nearestFlakeId !== null) {
+          fish.targetFlakeId = nearestFlakeId
+          updateFeed(fish, nearestFlakePos, dt)
+          // Check if fish reached the flake
+          if (nearestFlakeDist < 0.3) {
+            flakeManager.consume(nearestFlakeId)
+            fish.targetFlakeId = null
+          }
+        } else {
+          fish.targetFlakeId = null
+          updateWander(fish, dt)
+        }
+        break
     }
 
     fish.update(dt)
@@ -479,6 +523,7 @@ function animate() {
   if (settings.caustics) updateCaustics(lights, elapsed)
   cameraController.update(dt)
   effects.update(elapsed)
+  flakeManager.update(dt)
   updateParticles(elapsed, dt)
   updateLightRays(lightRays, elapsed)
   updateBubbles(elapsed, dt, camera)
