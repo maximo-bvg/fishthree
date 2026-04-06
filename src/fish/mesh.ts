@@ -10,6 +10,7 @@ const failedModels = new Set<string>()
 /**
  * Preload all GLB models for the given species. Call once at startup.
  * Models that fail to load will silently fall back to procedural geometry.
+ * Each model is auto-normalized so its largest dimension matches the species target size.
  */
 export async function preloadModels(species: Record<string, SpeciesDefinition>): Promise<void> {
   const promises: Promise<void>[] = []
@@ -19,14 +20,37 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
       loader.loadAsync(def.modelPath)
         .then((gltf) => {
           const model = gltf.scene
+
           // Enable shadows on all meshes
           model.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
               child.castShadow = true
             }
           })
-          modelCache.set(id, model)
-          console.log(`Loaded model: ${id}`)
+
+          // Auto-normalize: scale so the model's largest dimension equals species.size * 2
+          const box = new THREE.Box3().setFromObject(model)
+          const nativeSize = new THREE.Vector3()
+          box.getSize(nativeSize)
+          const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
+          if (maxDim > 0) {
+            const targetSize = def.size * 2
+            const normalizeScale = targetSize / maxDim
+            model.scale.setScalar(normalizeScale)
+          }
+
+          // Center the model on its bounding box
+          const centeredBox = new THREE.Box3().setFromObject(model)
+          const center = new THREE.Vector3()
+          centeredBox.getCenter(center)
+          model.position.sub(center)
+
+          // Wrap in a group so the position offset stays local
+          const wrapper = new THREE.Group()
+          wrapper.add(model)
+
+          modelCache.set(id, wrapper)
+          console.log(`Loaded model: ${id} (native size: ${nativeSize.x.toFixed(2)} x ${nativeSize.y.toFixed(2)} x ${nativeSize.z.toFixed(2)}, scaled to ${(def.size * 2).toFixed(2)})`)
         })
         .catch(() => {
           failedModels.add(id)
@@ -42,11 +66,10 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
  */
 export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
   if (speciesId && modelCache.has(speciesId)) {
-    const clone = modelCache.get(speciesId)!.clone()
-    const scale = species.modelScale ?? species.size
-    clone.scale.setScalar(scale)
-
-    // Play animations if the model has them
+    const source = modelCache.get(speciesId)!
+    const clone = source.clone()
+    // Deep clone children so each fish instance is independent
+    clone.children = source.children.map(c => c.clone())
     clone.userData.hasGLB = true
     return clone
   }
