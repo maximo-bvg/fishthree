@@ -598,7 +598,24 @@ function animate() {
   underwaterPass.enabled = !aboveWater
 
   bloomPass.enabled = settings.bloom
+
+  // Render scene (layer 0) through post-processing pipeline
+  camera.layers.set(0)
   composer.render()
+
+  // Render frame (layer 1) directly on top — no underwater distortion
+  camera.layers.set(1)
+  const savedBg = scene.background
+  const savedFog = scene.fog
+  scene.background = null
+  scene.fog = null
+  renderer.autoClear = false
+  renderer.clearDepth()
+  renderer.render(scene, camera)
+  renderer.autoClear = true
+  scene.background = savedBg
+  scene.fog = savedFog
+  camera.layers.enableAll()
 }
 
 animate()

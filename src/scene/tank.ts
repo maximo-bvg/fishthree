@@ -343,6 +343,16 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   base.position.set(0, -hh - bar - 0.3, 0)
   scene.add(base)
 
+  // Put all frame meshes on layer 1 — rendered after post-processing
+  // so the underwater wave distortion doesn't affect the rigid frame
+  const frameParts = [
+    topFront, topBack, topLeft, topRight,
+    botFront, botBack, botLeft, botRight,
+    postFL, postFR, postBL, postBR,
+    base,
+  ]
+  for (const part of frameParts) part.layers.set(1)
+
   // Dark interior walls above water line (air gap between water surface and top frame)
   const airGapHeight = bar
   const airGapMat = new THREE.MeshStandardMaterial({
