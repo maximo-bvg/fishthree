@@ -1,11 +1,6 @@
 export class AmbientSoundscape {
   private ctx: AudioContext
   private masterGain: GainNode
-  private humGain: GainNode
-  private waterGain: GainNode
-  private bubbleGain: GainNode
-  private humOsc: OscillatorNode | null = null
-  private noiseSource: AudioBufferSourceNode | null = null
   private running = false
   private bubbleTimer = 0
 
@@ -14,82 +9,114 @@ export class AmbientSoundscape {
     this.masterGain = ctx.createGain()
     this.masterGain.gain.value = 0.5
     this.masterGain.connect(destination)
-
-    this.humGain = ctx.createGain()
-    this.humGain.gain.value = 0.15
-    this.humGain.connect(this.masterGain)
-
-    this.waterGain = ctx.createGain()
-    this.waterGain.gain.value = 0.08
-    this.waterGain.connect(this.masterGain)
-
-    this.bubbleGain = ctx.createGain()
-    this.bubbleGain.gain.value = 0.06
-    this.bubbleGain.connect(this.masterGain)
   }
 
   start(): void {
     if (this.running) return
     this.running = true
 
-    // Deep hum — low filtered oscillator
-    this.humOsc = this.ctx.createOscillator()
-    this.humOsc.type = 'sawtooth'
-    this.humOsc.frequency.value = 60
-    const humFilter = this.ctx.createBiquadFilter()
-    humFilter.type = 'lowpass'
-    humFilter.frequency.value = 120
-    humFilter.Q.value = 2
-    this.humOsc.connect(humFilter)
-    humFilter.connect(this.humGain)
-    this.humOsc.start()
-
-    // Water movement — filtered noise with LFO
-    const bufferSize = this.ctx.sampleRate * 4
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate)
-    const data = noiseBuffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1
+    // Layer 1: Deep underwater rumble — very low filtered noise
+    const rumbleLen = this.ctx.sampleRate * 4
+    const rumbleBuf = this.ctx.createBuffer(1, rumbleLen, this.ctx.sampleRate)
+    const rumbleData = rumbleBuf.getChannelData(0)
+    for (let i = 0; i < rumbleLen; i++) {
+      rumbleData[i] = Math.random() * 2 - 1
     }
-    this.noiseSource = this.ctx.createBufferSource()
-    this.noiseSource.buffer = noiseBuffer
-    this.noiseSource.loop = true
+    const rumble = this.ctx.createBufferSource()
+    rumble.buffer = rumbleBuf
+    rumble.loop = true
+    const rumbleFilter = this.ctx.createBiquadFilter()
+    rumbleFilter.type = 'lowpass'
+    rumbleFilter.frequency.value = 80
+    rumbleFilter.Q.value = 1
+    const rumbleGain = this.ctx.createGain()
+    rumbleGain.gain.value = 0.25
+    rumble.connect(rumbleFilter)
+    rumbleFilter.connect(rumbleGain)
+    rumbleGain.connect(this.masterGain)
+    rumble.start()
+
+    // Layer 2: Muffled water texture — lowpass filtered noise (NOT bandpass, so no wind sound)
+    const waterLen = this.ctx.sampleRate * 6
+    const waterBuf = this.ctx.createBuffer(1, waterLen, this.ctx.sampleRate)
+    const waterData = waterBuf.getChannelData(0)
+    // Brown noise (integrated white noise) for smoother underwater feel
+    let lastVal = 0
+    for (let i = 0; i < waterLen; i++) {
+      lastVal += (Math.random() * 2 - 1) * 0.02
+      lastVal *= 0.998 // prevent drift
+      waterData[i] = lastVal
+    }
+    const water = this.ctx.createBufferSource()
+    water.buffer = waterBuf
+    water.loop = true
     const waterFilter = this.ctx.createBiquadFilter()
-    waterFilter.type = 'bandpass'
-    waterFilter.frequency.value = 400
-    waterFilter.Q.value = 1
-    // LFO on filter frequency
+    waterFilter.type = 'lowpass'
+    waterFilter.frequency.value = 250
+    waterFilter.Q.value = 0.5
+    // Slow LFO on volume for gentle ebb and flow
     const lfo = this.ctx.createOscillator()
-    lfo.frequency.value = 0.15
+    lfo.frequency.value = 0.08
     const lfoGain = this.ctx.createGain()
-    lfoGain.gain.value = 200
+    lfoGain.gain.value = 0.04
     lfo.connect(lfoGain)
-    lfoGain.connect(waterFilter.frequency)
+    const waterGain = this.ctx.createGain()
+    waterGain.gain.value = 0.15
+    lfoGain.connect(waterGain.gain)
+    water.connect(waterFilter)
+    waterFilter.connect(waterGain)
+    waterGain.connect(this.masterGain)
+    water.start()
     lfo.start()
 
-    this.noiseSource.connect(waterFilter)
-    waterFilter.connect(this.waterGain)
-    this.noiseSource.start()
+    // Layer 3: Gentle low-frequency hum (tank equipment vibe)
+    const hum = this.ctx.createOscillator()
+    hum.type = 'sine'
+    hum.frequency.value = 50
+    const humGain = this.ctx.createGain()
+    humGain.gain.value = 0.06
+    hum.connect(humGain)
+    humGain.connect(this.masterGain)
+    hum.start()
   }
 
   /** Trigger a random ambient bubble sound */
   triggerBubble(): void {
     if (!this.running) return
+    const now = this.ctx.currentTime
+
+    // Bubbles: short sine blip with pitch drop — sounds like an actual bubble
     const osc = this.ctx.createOscillator()
     osc.type = 'sine'
-    osc.frequency.value = 300 + Math.random() * 400
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.value = 500
-    filter.Q.value = 3
+    const startFreq = 400 + Math.random() * 600
+    osc.frequency.setValueAtTime(startFreq, now)
+    osc.frequency.exponentialRampToValueAtTime(startFreq * 0.4, now + 0.15)
+
     const gain = this.ctx.createGain()
-    gain.gain.value = 0.06
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3)
-    osc.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.bubbleGain)
-    osc.start()
-    osc.stop(this.ctx.currentTime + 0.3)
+    gain.gain.setValueAtTime(0.12, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
+
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(now)
+    osc.stop(now + 0.15)
+
+    // Sometimes spawn a second bubble for a "blub-blub" effect
+    if (Math.random() < 0.4) {
+      const osc2 = this.ctx.createOscillator()
+      osc2.type = 'sine'
+      const freq2 = startFreq * (0.6 + Math.random() * 0.3)
+      const delay = 0.06 + Math.random() * 0.04
+      osc2.frequency.setValueAtTime(freq2, now + delay)
+      osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.4, now + delay + 0.12)
+      const gain2 = this.ctx.createGain()
+      gain2.gain.setValueAtTime(0.08, now + delay)
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12)
+      osc2.connect(gain2)
+      gain2.connect(this.masterGain)
+      osc2.start(now + delay)
+      osc2.stop(now + delay + 0.12)
+    }
   }
 
   /** Call periodically (~every frame) to trigger random ambient bubbles */
@@ -97,7 +124,7 @@ export class AmbientSoundscape {
     this.bubbleTimer -= dt
     if (this.bubbleTimer <= 0) {
       this.triggerBubble()
-      this.bubbleTimer = 2 + Math.random() * 3 // 2-5 seconds
+      this.bubbleTimer = 1.5 + Math.random() * 2 // 1.5-3.5 seconds
     }
   }
 
@@ -107,7 +134,5 @@ export class AmbientSoundscape {
 
   stop(): void {
     this.running = false
-    this.humOsc?.stop()
-    this.noiseSource?.stop()
   }
 }
