@@ -9,13 +9,17 @@ interface BubbleParticle {
   offset: number
 }
 
+interface LightSetup {
+  spotlight: THREE.SpotLight
+  pointLight: THREE.PointLight
+  cone: THREE.Mesh
+  lens: THREE.Mesh | null
+}
+
 export class DecorationEffects {
   private swayingMeshes: { mesh: THREE.Group; speed: number; amplitude: number }[] = []
   private bubblers: { origin: THREE.Vector3; particles: BubbleParticle[] }[] = []
-  private spotlights: THREE.SpotLight[] = []
-  private pointLights: THREE.PointLight[] = []
-  private lightCones: THREE.Mesh[] = []
-  private lightLenses: THREE.Mesh[] = []
+  private lightSetups: Map<THREE.Group, LightSetup> = new Map()
   private scene: THREE.Scene
 
   constructor(scene: THREE.Scene) {
@@ -53,6 +57,19 @@ export class DecorationEffects {
 
   unregister(mesh: THREE.Group): void {
     this.swayingMeshes = this.swayingMeshes.filter(s => s.mesh !== mesh)
+
+    const setup = this.lightSetups.get(mesh)
+    if (setup) {
+      this.scene.remove(setup.spotlight)
+      this.scene.remove(setup.spotlight.target)
+      this.scene.remove(setup.pointLight)
+      this.scene.remove(setup.cone)
+      setup.spotlight.dispose()
+      setup.pointLight.dispose()
+      setup.cone.geometry.dispose()
+      ;(setup.cone.material as THREE.Material).dispose()
+      this.lightSetups.delete(mesh)
+    }
   }
 
   private addBubbler(origin: THREE.Vector3): void {
@@ -102,14 +119,12 @@ export class DecorationEffects {
     )
     this.scene.add(light)
     this.scene.add(light.target)
-    this.spotlights.push(light)
 
     // Point light for omnidirectional fill around the light fixture
     const fill = new THREE.PointLight(0xffffaa, 60.0, 0)
     fill.decay = 2
     fill.position.copy(position)
     this.scene.add(fill)
-    this.pointLights.push(fill)
 
     // Visible volumetric light cone
     const coneHeight = 3.0
@@ -135,33 +150,21 @@ export class DecorationEffects {
       cone.position.y -= coneHeight / 2 + 0.1
     }
     this.scene.add(cone)
-    this.lightCones.push(cone)
 
     // Track the lens mesh for emissive modulation
     const lens = mesh.getObjectByName('tank_light_lens') as THREE.Mesh | undefined
-    if (lens) {
-      this.lightLenses.push(lens)
-    }
+
+    this.lightSetups.set(mesh, {
+      spotlight: light,
+      pointLight: fill,
+      cone,
+      lens: lens ?? null,
+    })
   }
 
-  /** Get spotlights for external modulation (e.g. day/night cycle) */
-  getSpotlights(): THREE.SpotLight[] {
-    return this.spotlights
-  }
-
-  /** Get light cones for external modulation */
-  getLightCones(): THREE.Mesh[] {
-    return this.lightCones
-  }
-
-  /** Get point lights for external modulation */
-  getPointLights(): THREE.PointLight[] {
-    return this.pointLights
-  }
-
-  /** Get light lenses for external modulation */
-  getLightLenses(): THREE.Mesh[] {
-    return this.lightLenses
+  /** Get all light setups for external modulation (e.g. day/night cycle) */
+  getLightSetups(): LightSetup[] {
+    return Array.from(this.lightSetups.values())
   }
 
   update(time: number): void {

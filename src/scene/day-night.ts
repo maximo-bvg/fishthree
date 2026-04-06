@@ -307,19 +307,13 @@ export class DayNightCycle {
       // Range: 0.2 (noon) to 1.0 (midnight)
       const lightStrength = 0.2 + nightFactor * 0.8
 
-      for (const spot of this.decorationEffects.getSpotlights()) {
-        spot.intensity = 150.0 * lightStrength
-      }
-      for (const pt of this.decorationEffects.getPointLights()) {
-        pt.intensity = 60.0 * lightStrength
-      }
-      for (const cone of this.decorationEffects.getLightCones()) {
-        const mat = cone.material as THREE.MeshBasicMaterial
-        mat.opacity = 0.03 + nightFactor * 0.15
-      }
-      for (const lens of this.decorationEffects.getLightLenses()) {
-        const mat = lens.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 1.0 + nightFactor * 4.0
+      for (const setup of this.decorationEffects.getLightSetups()) {
+        setup.spotlight.intensity = 150.0 * lightStrength
+        setup.pointLight.intensity = 60.0 * lightStrength
+        ;(setup.cone.material as THREE.MeshBasicMaterial).opacity = 0.03 + nightFactor * 0.15
+        if (setup.lens) {
+          ;(setup.lens.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.0 + nightFactor * 4.0
+        }
       }
     }
   }
