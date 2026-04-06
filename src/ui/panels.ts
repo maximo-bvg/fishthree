@@ -9,6 +9,9 @@ export interface PanelCallbacks {
   onToggleBloom: (on: boolean) => void
   onSwayIntensity: (value: number) => void
   onScreenshot: () => void
+  onMasterVolume: (value: number) => void
+  onAmbientVolume: (value: number) => void
+  onSfxVolume: (value: number) => void
 }
 
 export function showFishListPanel(hud: HUD, fishes: Fish[], callbacks: PanelCallbacks): void {
@@ -93,7 +96,7 @@ export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: numbe
 
 export function showSettingsPanel(
   hud: HUD,
-  settings: { caustics: boolean; bloom: boolean; swayIntensity: number },
+  settings: { caustics: boolean; bloom: boolean; swayIntensity: number; masterVolume: number; ambientVolume: number; sfxVolume: number },
   callbacks: PanelCallbacks,
 ): void {
   const html = `
@@ -110,6 +113,18 @@ export function showSettingsPanel(
     <div class="setting-row">
       <span class="setting-label">Camera Sway</span>
       <input type="range" class="setting-slider" min="0" max="100" value="${settings.swayIntensity * 100}" data-setting="sway" />
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Master Volume</span>
+      <input type="range" class="setting-slider" min="0" max="100" value="${settings.masterVolume * 100}" data-setting="masterVolume" />
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Ambient Volume</span>
+      <input type="range" class="setting-slider" min="0" max="100" value="${settings.ambientVolume * 100}" data-setting="ambientVolume" />
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">SFX Volume</span>
+      <input type="range" class="setting-slider" min="0" max="100" value="${settings.sfxVolume * 100}" data-setting="sfxVolume" />
     </div>
   `
 
@@ -129,5 +144,20 @@ export function showSettingsPanel(
   const slider = panel.querySelector('[data-setting="sway"]') as HTMLInputElement
   slider?.addEventListener('input', () => {
     callbacks.onSwayIntensity(parseInt(slider.value, 10) / 100)
+  })
+
+  const masterSlider = panel.querySelector('[data-setting="masterVolume"]') as HTMLInputElement
+  masterSlider?.addEventListener('input', () => {
+    callbacks.onMasterVolume(parseInt(masterSlider.value, 10) / 100)
+  })
+
+  const ambientSlider = panel.querySelector('[data-setting="ambientVolume"]') as HTMLInputElement
+  ambientSlider?.addEventListener('input', () => {
+    callbacks.onAmbientVolume(parseInt(ambientSlider.value, 10) / 100)
+  })
+
+  const sfxSlider = panel.querySelector('[data-setting="sfxVolume"]') as HTMLInputElement
+  sfxSlider?.addEventListener('input', () => {
+    callbacks.onSfxVolume(parseInt(sfxSlider.value, 10) / 100)
   })
 }
