@@ -33,6 +33,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.3,
     modelPath: '/models/tetra.glb',
     modelScale: 0.15,
+    modelRotation: [0, 0, 0],
   },
   clownfish: {
     name: 'Clownfish',
@@ -47,6 +48,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.35,
     modelPath: '/models/clownfish.glb',
     modelScale: 0.25,
+    modelRotation: [0, 0, 0],
   },
   angelfish: {
     name: 'Angelfish',

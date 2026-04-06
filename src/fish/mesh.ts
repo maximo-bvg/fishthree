@@ -47,7 +47,7 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
           model.position.sub(center)
 
           // Apply per-species rotation correction to align with Three.js -Z forward
-          const rot = def.modelRotation ?? [0, Math.PI, 0]
+          const rot = def.modelRotation ?? [0, 0, 0]
           model.rotation.set(rot[0], rot[1], rot[2])
 
           // Wrap in a group so the position offset and rotation stay local
