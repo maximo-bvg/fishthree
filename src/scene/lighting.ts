@@ -27,9 +27,18 @@ export function createLighting(scene: THREE.Scene): Lights {
   scene.add(overhead.target)
 
   // Front fill light — brightens fish facing the camera
-  const fill = new THREE.DirectionalLight(0x8899bb, 1.2)
+  const fill = new THREE.DirectionalLight(0x8899bb, 2.0)
   fill.position.set(0, 2, 10)
   scene.add(fill)
+
+  // Side fill lights — prevent dark silhouettes on fish facing sideways
+  const leftFill = new THREE.DirectionalLight(0x6688aa, 1.0)
+  leftFill.position.set(-TANK.width / 2, 1, 0)
+  scene.add(leftFill)
+
+  const rightFill = new THREE.DirectionalLight(0x6688aa, 1.0)
+  rightFill.position.set(TANK.width / 2, 1, 0)
+  scene.add(rightFill)
 
   const causticLight = new THREE.SpotLight(0x66ccff, 0.8, 20, Math.PI / 4, 0.5)
   causticLight.position.set(0, TANK.height / 2 + 1, 0)

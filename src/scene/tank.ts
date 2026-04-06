@@ -108,11 +108,11 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const waterSurface = new Water(waterGeo, {
-    color: 0x0a5088,
-    scale: 4,
-    flowDirection: new THREE.Vector2(0.5, 0.3),
-    flowSpeed: 0.03,
-    reflectivity: 0.02,
+    color: 0x1a6a9a,
+    scale: 7,
+    flowDirection: new THREE.Vector2(2.0, 1.2),
+    flowSpeed: 0.15,
+    reflectivity: 0.4,
     textureWidth: 512,
     textureHeight: 512,
   })

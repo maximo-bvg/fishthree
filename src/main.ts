@@ -42,7 +42,7 @@ const composer = new EffectComposer(renderer)
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x2a7abb)
-scene.fog = new THREE.FogExp2(0x2a7abb, 0.012)
+scene.fog = new THREE.FogExp2(0x0a4a6a, 0.035)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 const tankMeshes = createTank(scene)
