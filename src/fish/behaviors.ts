@@ -7,7 +7,15 @@ const _dir = new THREE.Vector3()
 const _toHome = new THREE.Vector3()
 
 export function updateWander(fish: Fish, dt: number): void {
-  if (Math.random() < dt * 0.5) {
+  // Ensure fish always has some minimum velocity
+  if (fish.targetVelocity.lengthSq() < 0.01) {
+    fish.targetVelocity.set(
+      (Math.random() - 0.5) * fish.species.speed * 2,
+      (Math.random() - 0.5) * fish.species.speed * 0.6,
+      (Math.random() - 0.5) * fish.species.speed * 0.6,
+    )
+  }
+  if (Math.random() < dt * 1.0) {
     fish.targetVelocity.set(
       (Math.random() - 0.5) * fish.species.speed * 2,
       (Math.random() - 0.5) * fish.species.speed * 0.6,
