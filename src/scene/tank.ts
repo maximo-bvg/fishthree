@@ -270,60 +270,99 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   waterLineRight.rotation.y = -Math.PI / 2
   scene.add(waterLineRight)
 
-  // --- Tank rim (top frame) ---
-  const rimThickness = 0.12
-  const rimHeight = 0.8 // air gap above water + rim
-  const topY = TANK.height / 2
-  const rimMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a2e,
-    roughness: 0.3,
-    metalness: 0.1,
+  // --- Tank frame (full cage + base) ---
+  const bar = 0.4 // frame bar cross-section
+  const hw = TANK.width / 2
+  const hh = TANK.height / 2
+  const hd = TANK.depth / 2
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0x111118,
+    roughness: 0.35,
+    metalness: 0.15,
   })
 
-  // Front rim
-  const frontRimGeo = new THREE.BoxGeometry(TANK.width + rimThickness * 2, rimHeight, rimThickness)
-  const frontRim = new THREE.Mesh(frontRimGeo, rimMat)
-  frontRim.position.set(0, topY + rimHeight / 2, TANK.depth / 2)
-  scene.add(frontRim)
+  // Top horizontal bars (4)
+  const topBarFBGeo = new THREE.BoxGeometry(TANK.width + bar * 2, bar, bar)
+  const topBarLRGeo = new THREE.BoxGeometry(bar, bar, TANK.depth)
 
-  // Back rim
-  const backRim = new THREE.Mesh(frontRimGeo, rimMat)
-  backRim.position.set(0, topY + rimHeight / 2, -TANK.depth / 2)
-  scene.add(backRim)
+  const topFront = new THREE.Mesh(topBarFBGeo, frameMat)
+  topFront.position.set(0, hh + bar / 2, hd + bar / 2)
+  scene.add(topFront)
 
-  // Left rim
-  const sideRimGeo = new THREE.BoxGeometry(rimThickness, rimHeight, TANK.depth)
-  const leftRim = new THREE.Mesh(sideRimGeo, rimMat)
-  leftRim.position.set(-TANK.width / 2, topY + rimHeight / 2, 0)
-  scene.add(leftRim)
+  const topBack = new THREE.Mesh(topBarFBGeo, frameMat)
+  topBack.position.set(0, hh + bar / 2, -hd - bar / 2)
+  scene.add(topBack)
 
-  // Right rim
-  const rightRim = new THREE.Mesh(sideRimGeo, rimMat)
-  rightRim.position.set(TANK.width / 2, topY + rimHeight / 2, 0)
-  scene.add(rightRim)
+  const topLeft = new THREE.Mesh(topBarLRGeo, frameMat)
+  topLeft.position.set(-hw - bar / 2, hh + bar / 2, 0)
+  scene.add(topLeft)
 
-  // Dark interior walls above water line (the air gap inside the tank)
+  const topRight = new THREE.Mesh(topBarLRGeo, frameMat)
+  topRight.position.set(hw + bar / 2, hh + bar / 2, 0)
+  scene.add(topRight)
+
+  // Bottom horizontal bars (4)
+  const botFront = new THREE.Mesh(topBarFBGeo, frameMat)
+  botFront.position.set(0, -hh - bar / 2, hd + bar / 2)
+  scene.add(botFront)
+
+  const botBack = new THREE.Mesh(topBarFBGeo, frameMat)
+  botBack.position.set(0, -hh - bar / 2, -hd - bar / 2)
+  scene.add(botBack)
+
+  const botLeft = new THREE.Mesh(topBarLRGeo, frameMat)
+  botLeft.position.set(-hw - bar / 2, -hh - bar / 2, 0)
+  scene.add(botLeft)
+
+  const botRight = new THREE.Mesh(topBarLRGeo, frameMat)
+  botRight.position.set(hw + bar / 2, -hh - bar / 2, 0)
+  scene.add(botRight)
+
+  // Vertical corner posts (4)
+  const postGeo = new THREE.BoxGeometry(bar, TANK.height, bar)
+
+  const postFL = new THREE.Mesh(postGeo, frameMat)
+  postFL.position.set(-hw - bar / 2, 0, hd + bar / 2)
+  scene.add(postFL)
+
+  const postFR = new THREE.Mesh(postGeo, frameMat)
+  postFR.position.set(hw + bar / 2, 0, hd + bar / 2)
+  scene.add(postFR)
+
+  const postBL = new THREE.Mesh(postGeo, frameMat)
+  postBL.position.set(-hw - bar / 2, 0, -hd - bar / 2)
+  scene.add(postBL)
+
+  const postBR = new THREE.Mesh(postGeo, frameMat)
+  postBR.position.set(hw + bar / 2, 0, -hd - bar / 2)
+  scene.add(postBR)
+
+  // Base/stand under the tank
+  const baseGeo = new THREE.BoxGeometry(TANK.width + bar * 2, 0.6, TANK.depth + bar * 2)
+  const base = new THREE.Mesh(baseGeo, frameMat)
+  base.position.set(0, -hh - bar - 0.3, 0)
+  scene.add(base)
+
+  // Dark interior walls above water line (air gap between water surface and top frame)
+  const airGapHeight = bar
   const airGapMat = new THREE.MeshStandardMaterial({
     color: 0x050a14,
     roughness: 0.9,
   })
 
-  // Back air gap wall
-  const airGapBackGeo = new THREE.PlaneGeometry(TANK.width, rimHeight)
+  const airGapBackGeo = new THREE.PlaneGeometry(TANK.width, airGapHeight)
   const airGapBack = new THREE.Mesh(airGapBackGeo, airGapMat)
-  airGapBack.position.set(0, topY + rimHeight / 2, -TANK.depth / 2 + 0.01)
+  airGapBack.position.set(0, hh + airGapHeight / 2, -hd + 0.01)
   scene.add(airGapBack)
 
-  // Left air gap wall
-  const airGapSideGeo = new THREE.PlaneGeometry(TANK.depth, rimHeight)
+  const airGapSideGeo = new THREE.PlaneGeometry(TANK.depth, airGapHeight)
   const airGapLeft = new THREE.Mesh(airGapSideGeo, airGapMat)
-  airGapLeft.position.set(-TANK.width / 2 + 0.01, topY + rimHeight / 2, 0)
+  airGapLeft.position.set(-hw + 0.01, hh + airGapHeight / 2, 0)
   airGapLeft.rotation.y = Math.PI / 2
   scene.add(airGapLeft)
 
-  // Right air gap wall
   const airGapRight = new THREE.Mesh(airGapSideGeo, airGapMat)
-  airGapRight.position.set(TANK.width / 2 - 0.01, topY + rimHeight / 2, 0)
+  airGapRight.position.set(hw - 0.01, hh + airGapHeight / 2, 0)
   airGapRight.rotation.y = -Math.PI / 2
   scene.add(airGapRight)
 

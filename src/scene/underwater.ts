@@ -407,19 +407,16 @@ export function createUnderwaterPass(): ShaderPass {
         color.r = mix(color.r, texture2D(tDiffuse, uv + vec2(ca, ca * 0.5)).r, 0.5);
         color.b = mix(color.b, texture2D(tDiffuse, uv - vec2(ca, ca * 0.3)).b, 0.5);
 
-        // Underwater color grading — tint driven by day/night cycle
-        color.rgb = mix(color.rgb, uWaterTint, 0.38);
+        // Underwater color grading — subtle tint driven by day/night cycle
+        color.rgb = mix(color.rgb, uWaterTint, 0.22);
 
-        // Depth-gradient fog — bottom of screen = deeper = more tinted
+        // Depth-gradient fog — bottom of screen = deeper = slightly more tinted
         float depthFog = smoothstep(0.85, 0.05, vUv.y);
-        color.rgb = mix(color.rgb, uWaterTint * 0.35, depthFog * 0.25);
+        color.rgb = mix(color.rgb, uWaterTint * 0.5, depthFog * 0.12);
 
         // Desaturation — water absorbs warm colors first
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.45, 0.72, 1.0), 0.32);
-
-        // Light absorption
-        color.rgb *= 0.93;
+        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.5, 0.75, 1.0), 0.18);
 
         gl_FragColor = color;
       }
