@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { type SpeciesDefinition, type SpeciesId } from './species'
 import { lowPolyMaterial, jitterVertices } from '../utils/geometry'
 
@@ -86,7 +87,8 @@ export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId
 }
 
 function createGLBFishMesh(data: ModelData, species: SpeciesDefinition): THREE.Group {
-  const modelClone = data.scene.clone(true)
+  // Use SkeletonUtils.clone for rigged models — regular clone() breaks skinned meshes
+  const modelClone = SkeletonUtils.clone(data.scene) as THREE.Group
 
   // Center the model in native (unscaled) units
   modelClone.position.set(-data.center.x, -data.center.y, -data.center.z)
