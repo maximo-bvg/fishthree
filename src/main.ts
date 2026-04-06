@@ -27,6 +27,7 @@ import { HUD } from './ui/hud'
 import { EditModeUI } from './ui/edit-mode'
 import { showFishListPanel, showAddFishPanel, showSettingsPanel, type PanelCallbacks } from './ui/panels'
 import { saveState, loadState, DEFAULT_SETTINGS, type TankState, type TankSettings } from './utils/storage'
+import { AudioManager } from './audio/audio-manager'
 
 // --- Renderer setup ---
 const app = document.getElementById('app')!
@@ -212,11 +213,27 @@ const panelCallbacks: PanelCallbacks = {
     persistState()
   },
   onScreenshot: () => {
+    audioManager.playUI('screenshot')
     composer.render()
     const link = document.createElement('a')
     link.download = 'fishtank.png'
     link.href = renderer.domElement.toDataURL('image/png')
     link.click()
+  },
+  onMasterVolume: (value) => {
+    settings.masterVolume = value
+    audioManager.setMasterVolume(value)
+    persistState()
+  },
+  onAmbientVolume: (value) => {
+    settings.ambientVolume = value
+    audioManager.setAmbientVolume(value)
+    persistState()
+  },
+  onSfxVolume: (value) => {
+    settings.sfxVolume = value
+    audioManager.setSfxVolume(value)
+    persistState()
   },
 }
 
@@ -236,6 +253,12 @@ function updateHUDCounts(): void {
   hud.updateCounts(fishes.length, MAX_FISH, slotManager.getOccupied().length, MAX_DECOR)
 }
 
+const audioManager = new AudioManager()
+
+hud.onAudioTrigger = (sound) => {
+  audioManager.playUI(sound as any)
+}
+
 // --- Edit mode ---
 function enterEditMode(): void {
   isEditMode = true
@@ -247,9 +270,14 @@ function enterEditMode(): void {
     onSelectItem: (id) => { selectedDecorationId = id },
     onDone: () => exitEditMode(),
   })
+  audioManager.playUI('edit-enter')
+  editModeUI.onAudioTrigger = (sound) => {
+    audioManager.playUI(sound as any)
+  }
 }
 
 function exitEditMode(): void {
+  audioManager.playUI('edit-exit')
   isEditMode = false
   hideSlotIndicators()
   hud.getBottomBar().style.display = ''
@@ -286,6 +314,9 @@ function restoreState(): void {
   hud.setTankName(tankName)
   settings = { ...DEFAULT_SETTINGS, ...state.settings }
   lights.causticLight.visible = settings.caustics
+  audioManager.setMasterVolume(settings.masterVolume)
+  audioManager.setAmbientVolume(settings.ambientVolume)
+  audioManager.setSfxVolume(settings.sfxVolume)
 
   for (const fishSave of state.fishes) {
     addFish(fishSave.speciesId, fishSave.name)
@@ -433,6 +464,7 @@ function animate() {
   const elapsed = clock.getElapsedTime()
 
   updateFishBehaviors(dt)
+  audioManager.updateAmbient(dt)
   updateWaterSurface(tankMeshes, dt, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)
   updateParallax(camera)
