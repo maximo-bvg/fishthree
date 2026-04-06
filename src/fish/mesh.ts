@@ -339,9 +339,9 @@ export function animateFishMesh(group: THREE.Group, time: number, speed: number,
     // --- Whole-body sway: lateral shift + roll that follows the swim stroke ---
     if (inner) {
       // Roll tilts the body into the stroke — a gentle banking motion
-      inner.rotation.z = Math.sin(time * freq) * 0.06 * speed
-      // Subtle pitch bob — fish undulate vertically as they push through water
-      inner.rotation.x = Math.sin(time * freq * 2) * 0.015 * speed
+      inner.rotation.z = Math.sin(time * freq) * 0.10 * speed
+      // Pitch bob — fish undulate vertically as they push through water
+      inner.rotation.x = Math.sin(time * freq * 2) * 0.03 * speed
     }
 
     if (bones) {
@@ -358,27 +358,27 @@ export function animateFishMesh(group: THREE.Group, time: number, speed: number,
         const t = i / Math.max(1, n - 1) // 0 = head, 1 = tail tip
 
         // Primary S-wave — cubic amplitude ramp for a snappy tail
-        const primaryAmp = (0.01 + t * t * t * 0.55) * speed
+        const primaryAmp = (0.02 + t * t * t * 0.85) * speed
         const primaryPhase = t * Math.PI * 1.8
         const primary = Math.sin(time * freq + primaryPhase) * primaryAmp
 
         // Secondary harmonic — adds organic irregularity (half the speed, offset phase)
-        const secondaryAmp = t * t * 0.08 * speed
+        const secondaryAmp = t * t * 0.14 * speed
         const secondary = Math.sin(time * freq * 0.5 + t * Math.PI * 2.5) * secondaryAmp
 
         // Head counter-rotation: first bone slightly opposes the wave
         // so the head stays more stable while the body bends — like a real fish
-        const headCompensation = i === 0 ? -Math.sin(time * freq + Math.PI * 0.3) * 0.04 * speed : 0
+        const headCompensation = i === 0 ? -Math.sin(time * freq + Math.PI * 0.3) * 0.06 * speed : 0
 
         bone.rotation.y = rest.y + primary + secondary + headCompensation
 
         // Lateral tilt along the spine — each vertebra rolls slightly into the bend,
         // giving a more 3D feel rather than a flat side-to-side wave
-        const rollAmp = t * t * 0.12 * speed
+        const rollAmp = t * t * 0.20 * speed
         bone.rotation.z = rest.z + Math.cos(time * freq + primaryPhase) * rollAmp
 
         // Very subtle pitch variation along spine — prevents "flat plane" look
-        const pitchAmp = t * 0.03 * speed
+        const pitchAmp = t * 0.06 * speed
         bone.rotation.x = rest.x + Math.sin(time * freq * 1.3 + t * Math.PI) * pitchAmp
       }
 
@@ -394,8 +394,8 @@ export function animateFishMesh(group: THREE.Group, time: number, speed: number,
 
         const isBase = name.includes('body')
         // Pectoral fins row with a figure-8 motion: flap + sweep
-        const flapAmp = (isBase ? 0.25 : 0.15) * speed
-        const sweepAmp = (isBase ? 0.12 : 0.06) * speed
+        const flapAmp = (isBase ? 0.38 : 0.22) * speed
+        const sweepAmp = (isBase ? 0.18 : 0.10) * speed
         const phase = isBase ? 0 : 0.5
 
         // Main flap (Z rotation — up/down or side-to-side depending on rig)
@@ -410,13 +410,13 @@ export function animateFishMesh(group: THREE.Group, time: number, speed: number,
   const freq = tailFrequency * Math.PI * 2
   const tail = group.getObjectByName('tail')
   if (tail) {
-    tail.rotation.y = Math.sin(time * freq) * 0.4 * speed
-    tail.rotation.z = Math.cos(time * freq) * 0.08 * speed
+    tail.rotation.y = Math.sin(time * freq) * 0.55 * speed
+    tail.rotation.z = Math.cos(time * freq) * 0.12 * speed
   }
 
   const body = group.getObjectByName('body')
   if (body) {
-    body.rotation.y = Math.sin(time * freq + 0.6) * 0.08 * speed
-    body.rotation.z = Math.sin(time * freq) * 0.03 * speed
+    body.rotation.y = Math.sin(time * freq + 0.6) * 0.12 * speed
+    body.rotation.z = Math.sin(time * freq) * 0.05 * speed
   }
 }
