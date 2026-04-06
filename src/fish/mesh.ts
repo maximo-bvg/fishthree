@@ -46,9 +46,9 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
           centeredBox.getCenter(center)
           model.position.sub(center)
 
-          // Rotate model so it faces -Z (Three.js forward for lookAt)
-          // Most GLB fish models face +Z or +X, so rotate 180 around Y
-          model.rotation.y = Math.PI
+          // Apply per-species rotation correction to align with Three.js -Z forward
+          const rot = def.modelRotation ?? [0, Math.PI, 0]
+          model.rotation.set(rot[0], rot[1], rot[2])
 
           // Wrap in a group so the position offset and rotation stay local
           const wrapper = new THREE.Group()

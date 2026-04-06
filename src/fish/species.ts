@@ -14,6 +14,7 @@ export interface SpeciesDefinition {
   bodyLength: number
   modelPath?: string   // path to GLB model in public/models/
   modelScale?: number  // scale factor for the loaded model
+  modelRotation?: [number, number, number]  // [x, y, z] euler rotation correction for the inner model
 }
 
 export type SpeciesId = 'tetra' | 'clownfish' | 'angelfish' | 'pufferfish' | 'barracuda' | 'seahorse'
@@ -60,6 +61,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.4,
     modelPath: '/models/angelfish.glb',
     modelScale: 0.4,
+    modelRotation: [Math.PI, Math.PI, 0],  // flip upright + face forward
   },
   pufferfish: {
     name: 'Pufferfish',
@@ -88,6 +90,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.9,
     modelPath: '/models/barracuda.glb',
     modelScale: 0.6,
+    modelRotation: [Math.PI, Math.PI, 0],  // flip upright + face forward
   },
   seahorse: {
     name: 'Seahorse',

@@ -127,7 +127,7 @@ export class Fish {
 
   update(dt: number): void {
     this.time += dt
-    this.velocity.lerp(this.targetVelocity, 0.02)
+    this.velocity.lerp(this.targetVelocity, 0.05)
     this.mesh.position.addScaledVector(this.velocity, dt)
     this.clampToTank()
 

@@ -75,14 +75,15 @@ export function updateTerritorial(fish: Fish, homePos: THREE.Vector3, intruders:
 }
 
 export function updatePredatorPatrol(fish: Fish, dt: number): void {
-  if (Math.random() < dt * 0.2) {
+  // Update patrol direction frequently so barracuda keeps moving
+  if (Math.random() < dt * 1.5) {
     const hw = TANK.width / 2 - 2
     const hd = TANK.depth / 2 - 1
-    const angle = Math.atan2(fish.position.z, fish.position.x) + 0.3
+    const angle = Math.atan2(fish.position.z, fish.position.x) + 0.4
     const tx = Math.cos(angle) * hw
     const tz = Math.sin(angle) * hd
-    _dir.set(tx - fish.position.x, (Math.random() - 0.5) * 0.5, tz - fish.position.z)
-    _dir.normalize().multiplyScalar(fish.species.speed * 0.7)
+    _dir.set(tx - fish.position.x, (Math.random() - 0.5) * 0.8, tz - fish.position.z)
+    _dir.normalize().multiplyScalar(fish.species.speed * 0.9)
     fish.targetVelocity.copy(_dir)
   }
 }
