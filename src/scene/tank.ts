@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Water } from 'three/examples/jsm/objects/Water.js'
 
 export const TANK = {
   width: 16,
@@ -11,7 +12,7 @@ export interface TankMeshes {
   leftWall: THREE.Mesh
   rightWall: THREE.Mesh
   floor: THREE.Mesh
-  waterSurface: THREE.Mesh
+  waterSurface: Water
   frontGlass: THREE.Mesh
   waterLines: THREE.Mesh[]
 }
@@ -104,49 +105,25 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   floor.receiveShadow = true
   scene.add(floor)
 
-  // Water surface — animated rippling plane, visible from above
-  const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth, 32, 32)
-  const waterMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0 },
-    },
-    vertexShader: /* glsl */ `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform float uTime;
-      varying vec2 vUv;
-      void main() {
-        // Layered ripple pattern — multiple wave frequencies
-        float r1 = sin(vUv.x * 18.0 + uTime * 2.0) * cos(vUv.y * 12.0 + uTime * 1.3);
-        float r2 = sin((vUv.x + vUv.y) * 10.0 - uTime * 1.7) * 0.5;
-        float r3 = cos(vUv.x * 25.0 - uTime * 2.5) * sin(vUv.y * 20.0 + uTime * 1.8) * 0.3;
-        float pattern = (r1 + r2 + r3) * 0.5 + 0.5;
-
-        // Bright specular-like highlights where waves peak
-        float specular = pow(pattern, 3.0);
-
-        vec3 deepColor = vec3(0.08, 0.25, 0.45);
-        vec3 surfaceColor = vec3(0.25, 0.55, 0.75);
-        vec3 highlightColor = vec3(0.7, 0.9, 1.0);
-        vec3 col = mix(deepColor, surfaceColor, pattern);
-        col = mix(col, highlightColor, specular * 0.6);
-
-        float alpha = 0.55 + pattern * 0.25;
-        gl_FragColor = vec4(col, alpha);
-      }
-    `,
-    transparent: true,
-    depthWrite: false,
+  // Water surface — Three.js Water with reflections + animated normals
+  const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
+  const waterSurface = new Water(waterGeo, {
+    textureWidth: 512,
+    textureHeight: 512,
+    waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', (tex) => {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+    }),
+    sunDirection: new THREE.Vector3(0, 1, 0),
+    sunColor: 0xffffff,
+    waterColor: 0x0a5088,
+    distortionScale: 2.0,
+    alpha: 0.85,
+    fog: false,
     side: THREE.DoubleSide,
   })
-  const waterSurface = new THREE.Mesh(waterGeo, waterMat)
   waterSurface.rotation.x = -Math.PI / 2
   waterSurface.position.y = TANK.height / 2
+  waterSurface.material.uniforms['size'].value = 4.0
   scene.add(waterSurface)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level
@@ -262,18 +239,10 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   return { backWall, leftWall, rightWall, floor, waterSurface, frontGlass, waterLines }
 }
 
-export function updateWaterSurface(meshes: TankMeshes, time: number): void {
-  const water = meshes.waterSurface
-  const pos = water.geometry.attributes.position
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i)
-    const z = pos.getZ(i)
-    pos.setY(i, Math.sin(x * 0.5 + time * 1.5) * 0.05 + Math.cos(z * 0.7 + time * 1.2) * 0.03)
-  }
-  pos.needsUpdate = true
+export function updateWaterSurface(meshes: TankMeshes, dt: number, time: number): void {
+  // Three.js Water — increment time for wave animation
+  meshes.waterSurface.material.uniforms['time'].value += dt
 
-  // Update shader time uniforms
-  ;(water.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   ;(meshes.frontGlass.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   for (const wl of meshes.waterLines) {
     ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time

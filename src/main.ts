@@ -433,7 +433,7 @@ function animate() {
   const elapsed = clock.getElapsedTime()
 
   updateFishBehaviors(dt)
-  updateWaterSurface(tankMeshes, elapsed)
+  updateWaterSurface(tankMeshes, dt, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)
   updateParallax(camera)
   effects.update(elapsed)
