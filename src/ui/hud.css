@@ -46,6 +46,13 @@
   background: rgba(100, 180, 255, 0.15);
 }
 
+.time-icon {
+  font-size: 20px;
+  line-height: 1;
+  cursor: default;
+  transition: opacity 0.3s;
+}
+
 .hud-stats {
   display: flex;
   gap: 16px;

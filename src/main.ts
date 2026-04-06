@@ -430,6 +430,7 @@ window.addEventListener('resize', () => {
 
 // --- Render loop ---
 const clock = new THREE.Clock()
+let lastTimeOfDay = ''
 
 function animate() {
   requestAnimationFrame(animate)
@@ -437,6 +438,10 @@ function animate() {
   const elapsed = clock.getElapsedTime()
 
   dayNight.update(dt)
+  if (dayNight.timeOfDay !== lastTimeOfDay) {
+    lastTimeOfDay = dayNight.timeOfDay
+    hud.updateTimeIcon(lastTimeOfDay)
+  }
   for (const fish of fishes) {
     fish.speedMultiplier = dayNight.speedMultiplier
   }

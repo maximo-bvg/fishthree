@@ -12,6 +12,7 @@ export interface HUDCallbacks {
 export class HUD {
   private container: HTMLDivElement
   private tankNameInput: HTMLInputElement
+  private timeIconEl: HTMLSpanElement
   private fishCountEl: HTMLSpanElement
   private decorCountEl: HTMLSpanElement
   private bottomBar: HTMLDivElement
@@ -31,6 +32,12 @@ export class HUD {
     this.tankNameInput.value = 'My Reef Tank'
     this.tankNameInput.addEventListener('change', () => callbacks.onTankNameChange(this.tankNameInput.value))
     top.appendChild(this.tankNameInput)
+
+    this.timeIconEl = document.createElement('span')
+    this.timeIconEl.className = 'time-icon'
+    this.timeIconEl.textContent = '\u2600\uFE0F' // sun
+    this.timeIconEl.title = 'Noon'
+    top.appendChild(this.timeIconEl)
 
     const stats = document.createElement('div')
     stats.className = 'hud-stats'
@@ -89,6 +96,19 @@ export class HUD {
 
   setTankName(name: string): void {
     this.tankNameInput.value = name
+  }
+
+  updateTimeIcon(timeOfDay: string): void {
+    const icons: Record<string, { icon: string; label: string }> = {
+      midnight: { icon: '\uD83C\uDF19', label: 'Midnight' },
+      dawn: { icon: '\uD83C\uDF05', label: 'Dawn' },
+      noon: { icon: '\u2600\uFE0F', label: 'Noon' },
+      dusk: { icon: '\uD83C\uDF07', label: 'Dusk' },
+      night: { icon: '\uD83C\uDF19', label: 'Night' },
+    }
+    const info = icons[timeOfDay] || icons.noon
+    this.timeIconEl.textContent = info.icon
+    this.timeIconEl.title = info.label
   }
 
   updateCounts(fishCount: number, maxFish: number, decorCount: number, maxDecor: number): void {
