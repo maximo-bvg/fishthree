@@ -57,7 +57,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   rightWall.rotation.y = -Math.PI / 2
   scene.add(rightWall)
 
-  // Front glass — subtle animated water refraction overlay
+  // Front glass — animated water ripple overlay matching top-water look
   const frontGlassGeo = new THREE.PlaneGeometry(TANK.width, TANK.height)
   const frontGlassMat = new THREE.ShaderMaterial({
     uniforms: {
@@ -65,27 +65,76 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
+      varying vec3 vViewDir;
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vViewDir = normalize(cameraPosition - wp.xyz);
+        gl_Position = projectionMatrix * viewMatrix * wp;
       }
     `,
     fragmentShader: /* glsl */ `
       uniform float uTime;
       varying vec2 vUv;
+      varying vec3 vViewDir;
+
+      vec3 rippleNormal(vec2 uv, float t) {
+        float eps = 0.008;
+        // 5-octave height field — same density as top water
+        float h = 0.0;
+        h += sin(uv.x * 5.0 + t * 0.9) * cos(uv.y * 4.5 + t * 0.7) * 0.35;
+        h += sin((uv.x + uv.y) * 9.0 + t * 1.2) * 0.22;
+        h += cos(uv.x * 14.0 - uv.y * 11.0 - t * 1.5) * 0.14;
+        h += sin(uv.x * 20.0 + uv.y * 17.0 + t * 1.9) * 0.09;
+        h += cos((uv.x - uv.y) * 27.0 + t * 0.5) * 0.05;
+
+        float hx = 0.0;
+        hx += sin((uv.x+eps) * 5.0 + t * 0.9) * cos(uv.y * 4.5 + t * 0.7) * 0.35;
+        hx += sin(((uv.x+eps) + uv.y) * 9.0 + t * 1.2) * 0.22;
+        hx += cos((uv.x+eps) * 14.0 - uv.y * 11.0 - t * 1.5) * 0.14;
+        hx += sin((uv.x+eps) * 20.0 + uv.y * 17.0 + t * 1.9) * 0.09;
+        hx += cos(((uv.x+eps) - uv.y) * 27.0 + t * 0.5) * 0.05;
+
+        float hy = 0.0;
+        hy += sin(uv.x * 5.0 + t * 0.9) * cos((uv.y+eps) * 4.5 + t * 0.7) * 0.35;
+        hy += sin((uv.x + (uv.y+eps)) * 9.0 + t * 1.2) * 0.22;
+        hy += cos(uv.x * 14.0 - (uv.y+eps) * 11.0 - t * 1.5) * 0.14;
+        hy += sin(uv.x * 20.0 + (uv.y+eps) * 17.0 + t * 1.9) * 0.09;
+        hy += cos((uv.x - (uv.y+eps)) * 27.0 + t * 0.5) * 0.05;
+
+        return normalize(vec3(h - hx, h - hy, eps));
+      }
+
       void main() {
-        // Animated refraction-like ripple on the glass
-        float wave1 = sin(vUv.x * 8.0 + uTime * 0.8) * cos(vUv.y * 6.0 + uTime * 0.6);
-        float wave2 = sin((vUv.x + vUv.y) * 5.0 - uTime * 0.5) * 0.7;
-        float wave3 = cos(vUv.x * 12.0 - uTime * 1.1) * sin(vUv.y * 10.0 + uTime * 0.7) * 0.5;
-        float pattern = (wave1 + wave2 + wave3) * 0.33 + 0.5;
+        vec2 scaled = vUv * vec2(7.0, 4.0);
+        vec3 n = rippleNormal(scaled, uTime);
+        vec3 v = normalize(vViewDir);
 
-        // Bright caustic-like highlights
-        float highlights = pow(max(0.0, pattern), 3.0);
+        // Fresnel — edges of glass more opaque/reflective
+        float cosTheta = max(dot(v, vec3(0.0, 0.0, 1.0)), 0.0);
+        float fresnel = pow(1.0 - cosTheta, 4.0) * 0.7 + 0.08;
 
-        // Very subtle — just enough to see the glass distortion
-        vec3 col = vec3(0.5, 0.8, 1.0);
-        float alpha = highlights * 0.07 + pattern * 0.02;
+        // Water colors matching top-water palette
+        vec3 deep    = vec3(0.03, 0.10, 0.20);
+        vec3 surface = vec3(0.10, 0.32, 0.48);
+        vec3 sky     = vec3(0.35, 0.60, 0.82);
+
+        // Ripple-based lighting
+        vec3 lightDir = normalize(vec3(0.3, 0.8, 0.5));
+        float diff = dot(n, lightDir) * 0.5 + 0.5;
+        vec3 col = mix(deep, surface, diff);
+        col = mix(col, sky, pow(diff, 4.0) * 0.5);
+
+        // Specular highlights — visible ripple sparkle
+        vec3 halfDir = normalize(lightDir + v);
+        float spec = pow(max(dot(n, halfDir), 0.0), 100.0);
+        col += vec3(0.9, 0.95, 1.0) * spec * 0.5;
+
+        // Depth gradient — darker toward bottom
+        float depthGrad = smoothstep(0.0, 0.6, vUv.y);
+        col = mix(deep * 0.5, col, depthGrad);
+
+        float alpha = fresnel * mix(0.3, 0.15, depthGrad);
         gl_FragColor = vec4(col, alpha);
       }
     `,
