@@ -61,7 +61,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.4,
     modelPath: '/models/angelfish.glb',
     modelScale: 0.4,
-    modelRotation: [Math.PI, Math.PI, 0],  // flip upright + face forward
+    modelRotation: [Math.PI, 0, 0],  // flip upright only — native forward is already correct
   },
   pufferfish: {
     name: 'Pufferfish',
