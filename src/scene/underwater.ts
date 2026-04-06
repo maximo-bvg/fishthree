@@ -371,6 +371,7 @@ export function createUnderwaterPass(): ShaderPass {
     uniforms: {
       tDiffuse: { value: null },
       uTime: { value: 0 },
+      uWaterTint: { value: new THREE.Color(0x1a5570) },
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -382,6 +383,7 @@ export function createUnderwaterPass(): ShaderPass {
     fragmentShader: /* glsl */ `
       uniform sampler2D tDiffuse;
       uniform float uTime;
+      uniform vec3 uWaterTint;
       varying vec2 vUv;
 
       void main() {
@@ -392,9 +394,8 @@ export function createUnderwaterPass(): ShaderPass {
 
         vec4 color = texture2D(tDiffuse, uv);
 
-        // Underwater color grading — tint toward blue-green
-        vec3 waterTint = vec3(0.1, 0.35, 0.55);
-        color.rgb = mix(color.rgb, waterTint, 0.25);
+        // Underwater color grading — tint driven by day/night cycle
+        color.rgb = mix(color.rgb, uWaterTint, 0.25);
 
         // Desaturation — water absorbs warm colors
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
