@@ -12,7 +12,7 @@ export interface TankMeshes {
   rightWall: THREE.Mesh
   floor: THREE.Mesh
   waterSurface: THREE.Mesh
-  waterLine: THREE.Mesh
+  waterLines: THREE.Mesh[]
 }
 
 export function createTank(scene: THREE.Scene): TankMeshes {
@@ -63,33 +63,39 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   floor.receiveShadow = true
   scene.add(floor)
 
-  // Water surface — animated rippling plane
+  // Water surface — animated rippling plane, visible from above
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth, 32, 32)
   const waterMat = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uColor: { value: new THREE.Color(0x66bbee) },
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
-      varying float vY;
       void main() {
         vUv = uv;
-        vY = position.y;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: /* glsl */ `
       uniform float uTime;
-      uniform vec3 uColor;
       varying vec2 vUv;
       void main() {
-        // Ripple pattern visible on the surface
-        float ripple1 = sin(vUv.x * 20.0 + uTime * 2.0) * 0.5 + 0.5;
-        float ripple2 = sin(vUv.y * 15.0 - uTime * 1.5) * 0.5 + 0.5;
-        float pattern = ripple1 * ripple2;
-        float alpha = 0.12 + pattern * 0.1;
-        vec3 col = uColor + vec3(pattern * 0.15);
+        // Layered ripple pattern — multiple wave frequencies
+        float r1 = sin(vUv.x * 18.0 + uTime * 2.0) * cos(vUv.y * 12.0 + uTime * 1.3);
+        float r2 = sin((vUv.x + vUv.y) * 10.0 - uTime * 1.7) * 0.5;
+        float r3 = cos(vUv.x * 25.0 - uTime * 2.5) * sin(vUv.y * 20.0 + uTime * 1.8) * 0.3;
+        float pattern = (r1 + r2 + r3) * 0.5 + 0.5;
+
+        // Bright specular-like highlights where waves peak
+        float specular = pow(pattern, 3.0);
+
+        vec3 deepColor = vec3(0.08, 0.25, 0.45);
+        vec3 surfaceColor = vec3(0.25, 0.55, 0.75);
+        vec3 highlightColor = vec3(0.7, 0.9, 1.0);
+        vec3 col = mix(deepColor, surfaceColor, pattern);
+        col = mix(col, highlightColor, specular * 0.6);
+
+        float alpha = 0.55 + pattern * 0.25;
         gl_FragColor = vec4(col, alpha);
       }
     `,
@@ -102,8 +108,8 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   waterSurface.position.y = TANK.height / 2
   scene.add(waterSurface)
 
-  // Water line — visible edge where water meets air at top of tank
-  const waterLineGeo = new THREE.PlaneGeometry(TANK.width, 0.3)
+  // Water line / meniscus — bright shimmering strip on the front glass at water level
+  const waterLineGeo = new THREE.PlaneGeometry(TANK.width, 0.15)
   const waterLineMat = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -119,12 +125,15 @@ export function createTank(scene: THREE.Scene): TankMeshes {
       uniform float uTime;
       varying vec2 vUv;
       void main() {
-        // Bright line at water surface with shimmer
-        float shimmer = 0.7 + 0.3 * sin(vUv.x * 40.0 + uTime * 3.0);
-        // Fade below the line
-        float fade = 1.0 - vUv.y;
-        float alpha = fade * shimmer * 0.35;
-        vec3 color = mix(vec3(0.6, 0.85, 1.0), vec3(0.9, 0.95, 1.0), fade);
+        // Bright shimmering meniscus
+        float wave = sin(vUv.x * 60.0 + uTime * 4.0) * 0.5 + 0.5;
+        float wave2 = sin(vUv.x * 35.0 - uTime * 3.0) * 0.5 + 0.5;
+        float shimmer = mix(wave, wave2, 0.5);
+
+        // Sharp bright band that fades below
+        float band = smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.4, vUv.y);
+        float alpha = band * (0.6 + shimmer * 0.4);
+        vec3 color = vec3(0.6, 0.85, 1.0) + shimmer * vec3(0.3, 0.15, 0.05);
         gl_FragColor = vec4(color, alpha);
       }
     `,
@@ -132,11 +141,84 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     depthWrite: false,
     side: THREE.DoubleSide,
   })
+  // Front meniscus
   const waterLine = new THREE.Mesh(waterLineGeo, waterLineMat)
-  waterLine.position.set(0, TANK.height / 2, TANK.depth / 2 + 0.01) // just in front of tank front edge
+  waterLine.position.set(0, TANK.height / 2, TANK.depth / 2 + 0.02)
   scene.add(waterLine)
+  // Back meniscus
+  const waterLineBack = new THREE.Mesh(waterLineGeo, waterLineMat.clone())
+  waterLineBack.position.set(0, TANK.height / 2, -TANK.depth / 2 + 0.02)
+  scene.add(waterLineBack)
+  // Side meniscus lines
+  const sideLineGeo = new THREE.PlaneGeometry(TANK.depth, 0.15)
+  const waterLineLeft = new THREE.Mesh(sideLineGeo, waterLineMat.clone())
+  waterLineLeft.position.set(-TANK.width / 2 + 0.02, TANK.height / 2, 0)
+  waterLineLeft.rotation.y = Math.PI / 2
+  scene.add(waterLineLeft)
+  const waterLineRight = new THREE.Mesh(sideLineGeo, waterLineMat.clone())
+  waterLineRight.position.set(TANK.width / 2 - 0.02, TANK.height / 2, 0)
+  waterLineRight.rotation.y = -Math.PI / 2
+  scene.add(waterLineRight)
 
-  return { backWall, leftWall, rightWall, floor, waterSurface, waterLine }
+  // --- Tank rim (top frame) ---
+  const rimThickness = 0.12
+  const rimHeight = 0.8 // air gap above water + rim
+  const topY = TANK.height / 2
+  const rimMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a2e,
+    roughness: 0.3,
+    metalness: 0.1,
+  })
+
+  // Front rim
+  const frontRimGeo = new THREE.BoxGeometry(TANK.width + rimThickness * 2, rimHeight, rimThickness)
+  const frontRim = new THREE.Mesh(frontRimGeo, rimMat)
+  frontRim.position.set(0, topY + rimHeight / 2, TANK.depth / 2)
+  scene.add(frontRim)
+
+  // Back rim
+  const backRim = new THREE.Mesh(frontRimGeo, rimMat)
+  backRim.position.set(0, topY + rimHeight / 2, -TANK.depth / 2)
+  scene.add(backRim)
+
+  // Left rim
+  const sideRimGeo = new THREE.BoxGeometry(rimThickness, rimHeight, TANK.depth)
+  const leftRim = new THREE.Mesh(sideRimGeo, rimMat)
+  leftRim.position.set(-TANK.width / 2, topY + rimHeight / 2, 0)
+  scene.add(leftRim)
+
+  // Right rim
+  const rightRim = new THREE.Mesh(sideRimGeo, rimMat)
+  rightRim.position.set(TANK.width / 2, topY + rimHeight / 2, 0)
+  scene.add(rightRim)
+
+  // Dark interior walls above water line (the air gap inside the tank)
+  const airGapMat = new THREE.MeshStandardMaterial({
+    color: 0x050a14,
+    roughness: 0.9,
+  })
+
+  // Back air gap wall
+  const airGapBackGeo = new THREE.PlaneGeometry(TANK.width, rimHeight)
+  const airGapBack = new THREE.Mesh(airGapBackGeo, airGapMat)
+  airGapBack.position.set(0, topY + rimHeight / 2, -TANK.depth / 2 + 0.01)
+  scene.add(airGapBack)
+
+  // Left air gap wall
+  const airGapSideGeo = new THREE.PlaneGeometry(TANK.depth, rimHeight)
+  const airGapLeft = new THREE.Mesh(airGapSideGeo, airGapMat)
+  airGapLeft.position.set(-TANK.width / 2 + 0.01, topY + rimHeight / 2, 0)
+  airGapLeft.rotation.y = Math.PI / 2
+  scene.add(airGapLeft)
+
+  // Right air gap wall
+  const airGapRight = new THREE.Mesh(airGapSideGeo, airGapMat)
+  airGapRight.position.set(TANK.width / 2 - 0.01, topY + rimHeight / 2, 0)
+  airGapRight.rotation.y = -Math.PI / 2
+  scene.add(airGapRight)
+
+  const waterLines = [waterLine, waterLineBack, waterLineLeft, waterLineRight]
+  return { backWall, leftWall, rightWall, floor, waterSurface, waterLines }
 }
 
 export function updateWaterSurface(meshes: TankMeshes, time: number): void {
@@ -151,5 +233,7 @@ export function updateWaterSurface(meshes: TankMeshes, time: number): void {
 
   // Update shader time uniforms
   ;(water.material as THREE.ShaderMaterial).uniforms.uTime.value = time
-  ;(meshes.waterLine.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  for (const wl of meshes.waterLines) {
+    ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  }
 }

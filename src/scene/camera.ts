@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 const BASE_POSITION = new THREE.Vector3(0, 0.5, 14)
+const LOOK_AT = new THREE.Vector3(0, 0, 0)
 const PARALLAX_STRENGTH = 0.3
 const PARALLAX_SMOOTHING = 0.05
 
@@ -25,5 +26,5 @@ export function updateParallax(camera: THREE.PerspectiveCamera): void {
 
   camera.position.x = BASE_POSITION.x + smoothMouse.x * PARALLAX_STRENGTH
   camera.position.y = BASE_POSITION.y + smoothMouse.y * PARALLAX_STRENGTH * 0.5
-  camera.lookAt(0, 0, 0)
+  camera.lookAt(LOOK_AT)
 }
