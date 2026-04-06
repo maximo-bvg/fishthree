@@ -21,6 +21,7 @@ export class HUD {
   private decorThumbnails: HTMLDivElement
   private editBtn: HTMLButtonElement
   private panelOverlay: HTMLDivElement
+  onAudioTrigger: ((sound: string) => void) | null = null
 
   constructor(parent: HTMLElement, callbacks: HUDCallbacks) {
     this.container = document.createElement('div')
@@ -71,6 +72,7 @@ export class HUD {
       el.textContent = btn.icon
       el.title = btn.title
       el.addEventListener('click', btn.action)
+      el.addEventListener('click', () => this.onAudioTrigger?.('button-click'))
       sidebar.appendChild(el)
     }
 
@@ -129,6 +131,7 @@ export class HUD {
   }
 
   showPanel(html: string): void {
+    this.onAudioTrigger?.('panel-open')
     this.panelOverlay.innerHTML = html
     this.panelOverlay.classList.add('open')
 
@@ -137,6 +140,7 @@ export class HUD {
   }
 
   hidePanel(): void {
+    this.onAudioTrigger?.('panel-close')
     this.panelOverlay.classList.remove('open')
   }
 

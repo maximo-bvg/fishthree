@@ -34,6 +34,7 @@ export class EditModeUI {
   private activeCategory: DecorationCategory = 'plants'
   private selectedItem: DecorationId | null = null
   private callbacks: EditModeCallbacks
+  onAudioTrigger: ((sound: string) => void) | null = null
 
   constructor(parent: HTMLElement, callbacks: EditModeCallbacks) {
     this.callbacks = callbacks
@@ -97,6 +98,7 @@ export class EditModeUI {
         this.selectedItem = id as DecorationId
         this.renderItems()
         this.callbacks.onSelectItem(id as DecorationId)
+        this.onAudioTrigger?.('decor-placed')
       })
       this.itemsContainer.appendChild(item)
     }
