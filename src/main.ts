@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createTank, updateWaterSurface } from './scene/tank'
+import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
 import { createLighting, updateCaustics } from './scene/lighting'
 import { Fish, type StateContext } from './fish/fish'
@@ -8,9 +8,16 @@ import {
   updateWander, updateSchool, updateFlee, updateHide,
   updateTerritorial, updatePredatorPatrol, updateReact,
 } from './fish/behaviors'
+import { SlotManager, SLOT_DEFINITIONS } from './decorations/slots'
+import { type DecorationId } from './decorations/catalog'
+import { DecorationEffects } from './decorations/effects'
+import { HUD } from './ui/hud'
+import { EditModeUI } from './ui/edit-mode'
+import { showFishListPanel, showAddFishPanel, showSettingsPanel, type PanelCallbacks } from './ui/panels'
+import { saveState, loadState, DEFAULT_SETTINGS, type TankState, type TankSettings } from './utils/storage'
 
+// --- Renderer setup ---
 const app = document.getElementById('app')!
-
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(window.devicePixelRatio)
@@ -22,10 +29,23 @@ const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x0a3d6b)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
-const tank = createTank(scene)
+const tankMeshes = createTank(scene)
 const lights = createLighting(scene)
+const slotManager = new SlotManager()
+const effects = new DecorationEffects(scene)
 
-// Mouse world position (projected onto z=0 plane)
+// --- State ---
+const fishes: Fish[] = []
+let tankName = 'My Reef Tank'
+let settings: TankSettings = { ...DEFAULT_SETTINGS }
+let isEditMode = false
+let editModeUI: EditModeUI | null = null
+let selectedDecorationId: DecorationId | null = null
+
+const MAX_FISH = 12
+const MAX_DECOR = 20
+
+// --- Mouse tracking ---
 const raycaster = new THREE.Raycaster()
 const mouseNDC = new THREE.Vector2(999, 999)
 const mouseWorld = new THREE.Vector3()
@@ -36,37 +56,240 @@ window.addEventListener('mousemove', (e) => {
   mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1
 })
 
-// Spawn initial fish
-const fishes: Fish[] = []
+// --- Slot click detection ---
+const slotIndicators: THREE.Mesh[] = []
 
-function addFish(speciesId: SpeciesId, name: string): Fish {
+function createSlotIndicators(): void {
+  const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8)
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x22aa55,
+    transparent: true,
+    opacity: 0.2,
+    wireframe: true,
+  })
+  for (const def of SLOT_DEFINITIONS) {
+    const indicator = new THREE.Mesh(geo, mat.clone())
+    indicator.position.copy(def.position)
+    indicator.visible = false
+    scene.add(indicator)
+    slotIndicators.push(indicator)
+  }
+}
+createSlotIndicators()
+
+function showSlotIndicators(): void {
+  slotIndicators.forEach((ind, i) => {
+    const slot = slotManager.getSlot(i)
+    ind.visible = true
+    ;(ind.material as THREE.MeshBasicMaterial).color.setHex(
+      slot.decorationId ? 0xff6644 : 0x22aa55
+    )
+  })
+}
+
+function hideSlotIndicators(): void {
+  slotIndicators.forEach(ind => { ind.visible = false })
+}
+
+// --- Click handler for slot placement ---
+window.addEventListener('click', (e) => {
+  if (!isEditMode) return
+
+  raycaster.setFromCamera(
+    new THREE.Vector2(
+      (e.clientX / window.innerWidth) * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1,
+    ),
+    camera,
+  )
+
+  const hits = raycaster.intersectObjects(slotIndicators)
+  if (hits.length > 0) {
+    const slotIndex = slotIndicators.indexOf(hits[0].object as THREE.Mesh)
+    if (slotIndex === -1) return
+
+    const slot = slotManager.getSlot(slotIndex)
+    if (slot.decorationId) {
+      const mesh = slotManager.remove(slotIndex)
+      if (mesh) {
+        effects.unregister(mesh)
+        scene.remove(mesh)
+      }
+    } else if (selectedDecorationId) {
+      if (slotManager.place(slotIndex, selectedDecorationId)) {
+        const newSlot = slotManager.getSlot(slotIndex)
+        if (newSlot.mesh) {
+          scene.add(newSlot.mesh)
+          effects.register(selectedDecorationId, newSlot.mesh)
+        }
+      }
+    }
+
+    showSlotIndicators()
+    updateHUDCounts()
+    persistState()
+  }
+})
+
+// --- Fish management ---
+function addFish(speciesId: SpeciesId, name: string): void {
+  if (fishes.length >= MAX_FISH) return
   const fish = new Fish(speciesId, name)
   fishes.push(fish)
   scene.add(fish.mesh)
-  return fish
+  updateHUDCounts()
+  persistState()
 }
 
-// Default tank population
-addFish('tetra', 'Neon 1')
-addFish('tetra', 'Neon 2')
-addFish('tetra', 'Neon 3')
-addFish('clownfish', 'Nemo')
-addFish('angelfish', 'Grace')
-addFish('pufferfish', 'Puff')
-addFish('barracuda', 'Cuda')
-addFish('seahorse', 'Coral')
+function removeFish(index: number): void {
+  if (index < 0 || index >= fishes.length) return
+  const fish = fishes.splice(index, 1)[0]
+  scene.remove(fish.mesh)
+  updateHUDCounts()
+  persistState()
+}
 
-const clock = new THREE.Clock()
+// --- HUD ---
+const panelCallbacks: PanelCallbacks = {
+  onAddFish: (speciesId, name) => { addFish(speciesId, name) },
+  onRemoveFish: (index) => { removeFish(index) },
+  onToggleCaustics: (on) => {
+    settings.caustics = on
+    lights.causticLight.visible = on
+    persistState()
+  },
+  onToggleBloom: (on) => {
+    settings.bloom = on
+    persistState()
+  },
+  onSwayIntensity: (value) => {
+    settings.swayIntensity = value
+    persistState()
+  },
+  onScreenshot: () => {
+    renderer.render(scene, camera)
+    const link = document.createElement('a')
+    link.download = 'fishtank.png'
+    link.href = renderer.domElement.toDataURL('image/png')
+    link.click()
+  },
+}
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
+const hud = new HUD(app, {
+  onEditTank: () => enterEditMode(),
+  onFishList: () => showFishListPanel(hud, fishes, panelCallbacks),
+  onAddFish: () => showAddFishPanel(hud, fishes.length, MAX_FISH, panelCallbacks),
+  onScreenshot: panelCallbacks.onScreenshot,
+  onSettings: () => showSettingsPanel(hud, settings, panelCallbacks),
+  onTankNameChange: (name) => {
+    tankName = name
+    persistState()
+  },
 })
+
+function updateHUDCounts(): void {
+  hud.updateCounts(fishes.length, MAX_FISH, slotManager.getOccupied().length, MAX_DECOR)
+}
+
+// --- Edit mode ---
+function enterEditMode(): void {
+  isEditMode = true
+  selectedDecorationId = null
+  showSlotIndicators()
+  hud.getBottomBar().style.display = 'none'
+
+  editModeUI = new EditModeUI(app, {
+    onSelectItem: (id) => { selectedDecorationId = id },
+    onDone: () => exitEditMode(),
+  })
+}
+
+function exitEditMode(): void {
+  isEditMode = false
+  hideSlotIndicators()
+  hud.getBottomBar().style.display = ''
+  editModeUI?.destroy()
+  editModeUI = null
+}
+
+// --- Persistence ---
+function persistState(): void {
+  const state: TankState = {
+    tankName,
+    fishes: fishes.map(f => ({ speciesId: f.speciesId, name: f.name })),
+    decorations: slotManager.serialize(),
+    settings,
+  }
+  saveState(state)
+}
+
+function restoreState(): void {
+  const state = loadState()
+  if (!state) {
+    addFish('tetra', 'Neon 1')
+    addFish('tetra', 'Neon 2')
+    addFish('tetra', 'Neon 3')
+    addFish('clownfish', 'Nemo')
+    addFish('angelfish', 'Grace')
+    addFish('pufferfish', 'Puff')
+    addFish('barracuda', 'Cuda')
+    addFish('seahorse', 'Coral')
+    return
+  }
+
+  tankName = state.tankName
+  hud.setTankName(tankName)
+  settings = { ...DEFAULT_SETTINGS, ...state.settings }
+  lights.causticLight.visible = settings.caustics
+
+  for (const fishSave of state.fishes) {
+    addFish(fishSave.speciesId, fishSave.name)
+  }
+
+  const meshes = slotManager.deserialize(state.decorations)
+  for (let i = 0; i < state.decorations.length; i++) {
+    const mesh = meshes[i]
+    if (mesh) {
+      scene.add(mesh)
+      effects.register(state.decorations[i].decorationId, mesh)
+    }
+  }
+
+  updateHUDCounts()
+}
+
+restoreState()
+
+// --- Fish behavior update ---
+function getDecorationPositions(): THREE.Vector3[] {
+  return slotManager.getOccupied().map(({ index }) => SLOT_DEFINITIONS[index].position)
+}
+
+function getRockPositions(): THREE.Vector3[] {
+  return slotManager.getOccupied()
+    .filter(({ state }) => {
+      const id = state.decorationId
+      return id === 'boulder' || id === 'rock_arch' || id === 'driftwood'
+    })
+    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+}
+
+function getPlantPositions(): THREE.Vector3[] {
+  return slotManager.getOccupied()
+    .filter(({ state }) => {
+      const id = state.decorationId
+      return id === 'seaweed' || id === 'coral_fan' || id === 'anemone'
+    })
+    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+}
 
 function updateFishBehaviors(dt: number): void {
   raycaster.setFromCamera(mouseNDC, camera)
   raycaster.ray.intersectPlane(mousePlane, mouseWorld)
+
+  const decorPositions = getDecorationPositions()
+  const rockPositions = getRockPositions()
+  const plantPositions = getPlantPositions()
 
   for (const fish of fishes) {
     const threats: THREE.Vector3[] = []
@@ -88,13 +311,25 @@ function updateFishBehaviors(dt: number): void {
     }
 
     const mouseDist = fish.position.distanceTo(mouseWorld)
+    const shelters = rockPositions
+    const homes = fish.species.behaviorType === 'anchorer' ? plantPositions : decorPositions
+
+    let nearestHomeDist = Infinity
+    let nearestHomePos: THREE.Vector3 | null = null
+    for (const pos of homes) {
+      const d = fish.position.distanceTo(pos)
+      if (d < nearestHomeDist) {
+        nearestHomeDist = d
+        nearestHomePos = pos
+      }
+    }
 
     const ctx: StateContext = {
       threats: threats.map(t => ({ distance: fish.position.distanceTo(t) })),
-      shelters: [],
+      shelters: shelters.map(s => ({ distance: fish.position.distanceTo(s) })),
       school: school.map(s => ({ distance: fish.position.distanceTo(s.position) })),
       mouse: mouseDist < 3.0 ? { distance: mouseDist } : null,
-      homeDecor: null,
+      homeDecor: nearestHomePos ? { distance: nearestHomeDist } : null,
     }
 
     fish.stateMachine.update(dt, ctx)
@@ -115,10 +350,14 @@ function updateFishBehaviors(dt: number): void {
         updateFlee(fish, threats, dt)
         break
       case 'hide':
-        updateHide(fish, [], dt)
+        updateHide(fish, shelters, dt)
         break
       case 'territorial':
-        updateTerritorial(fish, new THREE.Vector3(0, -2, 0), intruders, dt)
+        if (nearestHomePos) {
+          updateTerritorial(fish, nearestHomePos, intruders, dt)
+        } else {
+          updateWander(fish, dt)
+        }
         break
       case 'react':
         updateReact(fish, mouseWorld, dt)
@@ -129,15 +368,26 @@ function updateFishBehaviors(dt: number): void {
   }
 }
 
+// --- Resize ---
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+})
+
+// --- Render loop ---
+const clock = new THREE.Clock()
+
 function animate() {
   requestAnimationFrame(animate)
   const dt = Math.min(clock.getDelta(), 0.05)
   const elapsed = clock.getElapsedTime()
 
   updateFishBehaviors(dt)
-  updateWaterSurface(tank.waterSurface, elapsed)
-  updateCaustics(lights, elapsed)
+  updateWaterSurface(tankMeshes.waterSurface, elapsed)
+  if (settings.caustics) updateCaustics(lights, elapsed)
   updateParallax(camera)
+  effects.update(elapsed)
 
   renderer.render(scene, camera)
 }
