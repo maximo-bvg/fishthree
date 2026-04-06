@@ -10,6 +10,8 @@ import {
   createParticles, updateParticles,
   createLightRays, updateLightRays,
   initBubbles, updateBubbles,
+  createCausticOverlays, updateCausticOverlays,
+  createUnderwaterPass, updateUnderwaterPass,
 } from './scene/underwater'
 import { Fish, type StateContext } from './fish/fish'
 import { type SpeciesId, SPECIES } from './fish/species'
@@ -39,8 +41,8 @@ app.appendChild(renderer.domElement)
 const composer = new EffectComposer(renderer)
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x0a3d6b)
-scene.fog = new THREE.FogExp2(0x0a4a7a, 0.025)
+scene.background = new THREE.Color(0x2a7abb)
+scene.fog = new THREE.FogExp2(0x2a7abb, 0.012)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 const tankMeshes = createTank(scene)
@@ -50,6 +52,7 @@ const lights = createLighting(scene)
 const lightRays = createLightRays(scene)
 createParticles(scene)
 initBubbles(scene)
+createCausticOverlays(scene)
 
 const renderPass = new RenderPass(scene, camera)
 composer.addPass(renderPass)
@@ -61,6 +64,9 @@ const bloomPass = new UnrealBloomPass(
   0.85, // threshold
 )
 composer.addPass(bloomPass)
+
+const underwaterPass = createUnderwaterPass()
+composer.addPass(underwaterPass)
 
 // Depth-of-field disabled — was blurring fish at different depths
 // const bokehPass = new BokehPass(scene, camera, {
@@ -434,6 +440,8 @@ function animate() {
   updateParticles(elapsed, dt)
   updateLightRays(lightRays, elapsed)
   updateBubbles(elapsed, dt, camera)
+  updateCausticOverlays(elapsed)
+  updateUnderwaterPass(underwaterPass, elapsed)
 
   bloomPass.enabled = settings.bloom
   composer.render()

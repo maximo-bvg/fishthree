@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { TANK } from './tank'
 
 // --- Floating particles (plankton / dust motes) ---
@@ -282,4 +283,122 @@ export function updateBubbles(time: number, dt: number, camera: THREE.Camera): v
       bubbles.splice(i, 1)
     }
   }
+}
+
+// --- Caustic light overlay on floor and back wall ---
+
+let causticFloorMesh: THREE.Mesh
+let causticBackMesh: THREE.Mesh
+
+const causticShader = {
+  uniforms: {
+    uTime: { value: 0 },
+  },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform float uTime;
+    varying vec2 vUv;
+
+    float causticLayer(vec2 uv, float t) {
+      vec2 p = uv * 5.0;
+      float a = sin(p.x * 2.1 + t * 0.7) * cos(p.y * 1.8 - t * 0.5);
+      float b = cos(p.x * 1.7 - t * 0.6) * sin(p.y * 2.3 + t * 0.8);
+      float c = sin((p.x + p.y) * 1.5 + t * 0.4);
+      float v = (a + b + c) / 3.0;
+      return pow(max(0.0, v), 1.5);
+    }
+
+    void main() {
+      float c1 = causticLayer(vUv, uTime);
+      float c2 = causticLayer(vUv + vec2(0.3, 0.7), uTime * 1.3 + 5.0);
+      float caustic = (c1 + c2) * 0.5;
+
+      vec3 color = vec3(0.4, 0.8, 1.0) * caustic;
+      float alpha = caustic * 0.8;
+      gl_FragColor = vec4(color, alpha);
+    }
+  `,
+}
+
+export function createCausticOverlays(scene: THREE.Scene): void {
+  // Floor caustics
+  const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
+  const floorMat = new THREE.ShaderMaterial({
+    ...causticShader,
+    uniforms: { uTime: { value: 0 } },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+  causticFloorMesh = new THREE.Mesh(floorGeo, floorMat)
+  causticFloorMesh.rotation.x = -Math.PI / 2
+  causticFloorMesh.position.y = -TANK.height / 2 + 0.02
+  scene.add(causticFloorMesh)
+
+  // Back wall caustics
+  const backGeo = new THREE.PlaneGeometry(TANK.width, TANK.height)
+  const backMat = new THREE.ShaderMaterial({
+    ...causticShader,
+    uniforms: { uTime: { value: 0 } },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+  causticBackMesh = new THREE.Mesh(backGeo, backMat)
+  causticBackMesh.position.set(0, 0, -TANK.depth / 2 + 0.02)
+  scene.add(causticBackMesh)
+}
+
+export function updateCausticOverlays(time: number): void {
+  if (causticFloorMesh) {
+    ;(causticFloorMesh.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  }
+  if (causticBackMesh) {
+    ;(causticBackMesh.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  }
+}
+
+// --- Underwater post-processing pass (wave distortion + color grading) ---
+
+export function createUnderwaterPass(): ShaderPass {
+  const pass = new ShaderPass({
+    uniforms: {
+      tDiffuse: { value: null },
+      uTime: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D tDiffuse;
+      uniform float uTime;
+      varying vec2 vUv;
+
+      void main() {
+        // Gentle wave distortion — everything ripples subtly
+        vec2 uv = vUv;
+        uv.x += sin(vUv.y * 12.0 + uTime * 1.2) * 0.002;
+        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0015;
+
+        vec4 color = texture2D(tDiffuse, uv);
+
+        gl_FragColor = color;
+      }
+    `,
+  })
+  return pass
+}
+
+export function updateUnderwaterPass(pass: ShaderPass, time: number): void {
+  pass.uniforms['uTime'].value = time
 }

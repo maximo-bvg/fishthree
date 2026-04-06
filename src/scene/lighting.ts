@@ -8,10 +8,10 @@ export interface Lights {
 }
 
 export function createLighting(scene: THREE.Scene): Lights {
-  const ambient = new THREE.AmbientLight(0x88bbdd, 1.5)
+  const ambient = new THREE.AmbientLight(0xaaddee, 3.0)
   scene.add(ambient)
 
-  const overhead = new THREE.DirectionalLight(0xffffff, 2.0)
+  const overhead = new THREE.DirectionalLight(0xffffff, 3.0)
   overhead.position.set(0, TANK.height, 2)
   overhead.target.position.set(0, -TANK.height / 2, 0)
   overhead.castShadow = true
@@ -27,7 +27,7 @@ export function createLighting(scene: THREE.Scene): Lights {
   scene.add(overhead.target)
 
   // Front fill light — brightens fish facing the camera
-  const fill = new THREE.DirectionalLight(0x8899bb, 0.8)
+  const fill = new THREE.DirectionalLight(0x8899bb, 1.2)
   fill.position.set(0, 2, 10)
   scene.add(fill)
 

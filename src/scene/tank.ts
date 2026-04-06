@@ -12,6 +12,7 @@ export interface TankMeshes {
   rightWall: THREE.Mesh
   floor: THREE.Mesh
   waterSurface: THREE.Mesh
+  frontGlass: THREE.Mesh
   waterLines: THREE.Mesh[]
 }
 
@@ -23,9 +24,9 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   for (let i = 0; i < backPos.count; i++) {
     const y = backPos.getY(i)
     const t = (y + TANK.height / 2) / TANK.height
-    const r = THREE.MathUtils.lerp(0.02, 0.06, t)
-    const g = THREE.MathUtils.lerp(0.15, 0.30, t)
-    const b = THREE.MathUtils.lerp(0.35, 0.55, t)
+    const r = THREE.MathUtils.lerp(0.06, 0.15, t)
+    const g = THREE.MathUtils.lerp(0.30, 0.55, t)
+    const b = THREE.MathUtils.lerp(0.55, 0.85, t)
     backColors.push(r, g, b)
   }
   backGeo.setAttribute('color', new THREE.Float32BufferAttribute(backColors, 3))
@@ -53,6 +54,46 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   rightWall.position.set(TANK.width / 2, 0, 0)
   rightWall.rotation.y = -Math.PI / 2
   scene.add(rightWall)
+
+  // Front glass — subtle animated water refraction overlay
+  const frontGlassGeo = new THREE.PlaneGeometry(TANK.width, TANK.height)
+  const frontGlassMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      varying vec2 vUv;
+      void main() {
+        // Animated refraction-like ripple on the glass
+        float wave1 = sin(vUv.x * 8.0 + uTime * 0.8) * cos(vUv.y * 6.0 + uTime * 0.6);
+        float wave2 = sin((vUv.x + vUv.y) * 5.0 - uTime * 0.5) * 0.7;
+        float wave3 = cos(vUv.x * 12.0 - uTime * 1.1) * sin(vUv.y * 10.0 + uTime * 0.7) * 0.5;
+        float pattern = (wave1 + wave2 + wave3) * 0.33 + 0.5;
+
+        // Bright caustic-like highlights
+        float highlights = pow(max(0.0, pattern), 3.0);
+
+        // Very subtle — just enough to see the glass distortion
+        vec3 col = vec3(0.5, 0.8, 1.0);
+        float alpha = highlights * 0.07 + pattern * 0.02;
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  const frontGlass = new THREE.Mesh(frontGlassGeo, frontGlassMat)
+  frontGlass.position.set(0, 0, TANK.depth / 2)
+  scene.add(frontGlass)
 
   // Floor — sandy color
   const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
@@ -218,7 +259,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   scene.add(airGapRight)
 
   const waterLines = [waterLine, waterLineBack, waterLineLeft, waterLineRight]
-  return { backWall, leftWall, rightWall, floor, waterSurface, waterLines }
+  return { backWall, leftWall, rightWall, floor, waterSurface, frontGlass, waterLines }
 }
 
 export function updateWaterSurface(meshes: TankMeshes, time: number): void {
@@ -233,6 +274,7 @@ export function updateWaterSurface(meshes: TankMeshes, time: number): void {
 
   // Update shader time uniforms
   ;(water.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  ;(meshes.frontGlass.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   for (const wl of meshes.waterLines) {
     ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   }
