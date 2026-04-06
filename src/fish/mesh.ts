@@ -20,44 +20,58 @@ const failedModels = new Set<string>()
  * Stores model data for later cloning. Falls back to procedural geometry on failure.
  */
 export async function preloadModels(species: Record<string, SpeciesDefinition>): Promise<void> {
-  const promises: Promise<void>[] = []
-  for (const [id, def] of Object.entries(species)) {
-    if (!def.modelPath || failedModels.has(id)) continue
-    promises.push(
-      loader.loadAsync(def.modelPath)
+  // Load unique model paths only once, then create per-species entries with correct scale
+  const loadedScenes = new Map<string, { scene: THREE.Group; nativeSize: THREE.Vector3; center: THREE.Vector3 }>()
+
+  // First pass: load unique files
+  const uniquePaths = new Set<string>()
+  for (const def of Object.values(species)) {
+    if (def.modelPath) uniquePaths.add(def.modelPath)
+  }
+
+  await Promise.all(
+    [...uniquePaths].map(path =>
+      loader.loadAsync(path)
         .then((gltf) => {
           const scene = gltf.scene
-
-          // Enable shadows on all meshes
           scene.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
               child.castShadow = true
             }
           })
 
-          // Compute bounding box for size normalization and centering
           const box = new THREE.Box3().setFromObject(scene)
           const nativeSize = new THREE.Vector3()
           box.getSize(nativeSize)
           const center = new THREE.Vector3()
           box.getCenter(center)
 
-          const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
-          const targetSize = def.size * 3
-          const scale = maxDim > 0 ? targetSize / maxDim : 1
-
-          const rotation: [number, number, number] = (def.modelRotation ?? [0, 0, 0]) as [number, number, number]
-
-          modelCache.set(id, { scene, scale, rotation, center })
-          console.log(`Loaded model: ${id} (native: ${nativeSize.x.toFixed(2)}x${nativeSize.y.toFixed(2)}x${nativeSize.z.toFixed(2)}, scale: ${scale.toFixed(3)})`)
+          loadedScenes.set(path, { scene, nativeSize, center })
+          console.log(`Loaded model: ${path} (native: ${nativeSize.x.toFixed(2)}x${nativeSize.y.toFixed(2)}x${nativeSize.z.toFixed(2)})`)
         })
         .catch(() => {
-          failedModels.add(id)
-          console.log(`Model not found for ${id}, using procedural mesh`)
+          console.log(`Model not found: ${path}`)
         })
     )
+  )
+
+  // Second pass: create per-species entries with correct scale
+  for (const [id, def] of Object.entries(species)) {
+    if (!def.modelPath) continue
+    const loaded = loadedScenes.get(def.modelPath)
+    if (!loaded) {
+      failedModels.add(id)
+      continue
+    }
+
+    const maxDim = Math.max(loaded.nativeSize.x, loaded.nativeSize.y, loaded.nativeSize.z)
+    const targetSize = def.size * 3
+    const scale = maxDim > 0 ? targetSize / maxDim : 1
+    const rotation: [number, number, number] = (def.modelRotation ?? [0, 0, 0]) as [number, number, number]
+
+    modelCache.set(id, { scene: loaded.scene, scale, rotation, center: loaded.center })
+    console.log(`  → ${id}: scale ${scale.toFixed(3)}`)
   }
-  await Promise.all(promises)
 }
 
 /**
@@ -66,12 +80,12 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
  */
 export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
   if (speciesId && modelCache.has(speciesId)) {
-    return createGLBFishMesh(modelCache.get(speciesId)!)
+    return createGLBFishMesh(modelCache.get(speciesId)!, species)
   }
   return createProceduralFishMesh(species)
 }
 
-function createGLBFishMesh(data: ModelData): THREE.Group {
+function createGLBFishMesh(data: ModelData, species: SpeciesDefinition): THREE.Group {
   const modelClone = data.scene.clone(true)
 
   // Center the model in native (unscaled) units
@@ -80,7 +94,26 @@ function createGLBFishMesh(data: ModelData): THREE.Group {
   // Apply axis correction rotation
   modelClone.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2])
 
-  // Wrapper group: Fish controls position (movement) and rotation (lookAt)
+  // Tint all meshes with the species color
+  const speciesColor = new THREE.Color(species.color)
+  modelClone.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh
+      // Clone the material so each fish has its own color
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map(m => {
+          const mat = m.clone() as THREE.MeshStandardMaterial
+          if (mat.color) mat.color.multiply(speciesColor)
+          return mat
+        })
+      } else {
+        mesh.material = mesh.material.clone()
+        ;(mesh.material as THREE.MeshStandardMaterial).color.multiply(speciesColor)
+      }
+    }
+  })
+
+  // Wrapper group: Fish controls position (movement) and rotation (yaw/pitch)
   // Scale goes on the wrapper so it doesn't interfere with centering
   const group = new THREE.Group()
   group.scale.setScalar(data.scale)
