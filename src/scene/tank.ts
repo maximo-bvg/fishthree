@@ -122,85 +122,89 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   waterSurface.material.side = THREE.DoubleSide
   scene.add(waterSurface)
 
-  // Top-view water surface — custom ripple shader visible when camera is above
-  const topWaterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
+  // Top-view water surface — Gerstner wave displacement + analytic normals
+  const topWaterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth, 200, 100)
   const topWaterMat = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
     },
     vertexShader: /* glsl */ `
+      uniform float uTime;
       varying vec2 vUv;
+      varying vec3 vNormal_w;
       varying vec3 vViewDir;
+
+      // Gerstner wave: displaces position, accumulates normal
+      // dir = wave direction, f = frequency, a = amplitude, s = speed, q = steepness
+      vec3 gerstner(vec2 dir, float f, float a, float s, float q, vec2 p, float t, inout vec3 n) {
+        float phase = dot(dir, p) * f + t * s;
+        float sn = sin(phase);
+        float cs = cos(phase);
+        n.x -= dir.x * f * a * cs;
+        n.y -= dir.y * f * a * cs;
+        n.z -= q * f * a * sn;
+        return vec3(q * a * dir.x * cs, q * a * dir.y * cs, a * sn);
+      }
+
       void main() {
         vUv = uv;
-        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vec3 pos = position;
+        vec3 n = vec3(0.0, 0.0, 1.0);
+        vec2 p = pos.xy;
+        float t = uTime;
+
+        // 8 Gerstner waves at varied angles for organic interference
+        pos += gerstner(normalize(vec2(1.0, 0.4)),   2.2, 0.05,  1.0, 0.45, p, t, n);
+        pos += gerstner(normalize(vec2(-0.6, 1.0)),   3.0, 0.04,  0.8, 0.40, p, t, n);
+        pos += gerstner(normalize(vec2(0.3, -0.9)),   4.2, 0.03,  1.3, 0.35, p, t, n);
+        pos += gerstner(normalize(vec2(-1.0, -0.2)),  5.5, 0.022, 1.7, 0.30, p, t, n);
+        pos += gerstner(normalize(vec2(0.7, 0.7)),    7.0, 0.015, 2.1, 0.25, p, t, n);
+        pos += gerstner(normalize(vec2(-0.4, 0.8)),   9.5, 0.010, 2.6, 0.20, p, t, n);
+        pos += gerstner(normalize(vec2(0.9, -0.5)),  12.0, 0.006, 3.2, 0.15, p, t, n);
+        pos += gerstner(normalize(vec2(-0.2, -1.0)), 16.0, 0.004, 3.8, 0.10, p, t, n);
+
+        vNormal_w = normalize(normalMatrix * normalize(n));
+        vec4 wp = modelMatrix * vec4(pos, 1.0);
         vViewDir = normalize(cameraPosition - wp.xyz);
         gl_Position = projectionMatrix * viewMatrix * wp;
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform float uTime;
       varying vec2 vUv;
+      varying vec3 vNormal_w;
       varying vec3 vViewDir;
 
-      vec3 getRippleNormal(vec2 uv, float t) {
-        float eps = 0.008;
-        // Multi-octave height field
-        float h = 0.0;
-        h += sin(uv.x * 6.5 + t * 0.9) * cos(uv.y * 5.8 + t * 0.7) * 0.35;
-        h += sin((uv.x + uv.y) * 11.0 + t * 1.3) * 0.22;
-        h += cos(uv.x * 17.0 - uv.y * 14.0 - t * 1.7) * 0.13;
-        h += sin(uv.x * 23.0 + uv.y * 19.0 + t * 2.1) * 0.08;
-        h += cos((uv.x - uv.y) * 31.0 + t * 0.6) * 0.05;
-
-        float hx = 0.0;
-        hx += sin((uv.x + eps) * 6.5 + t * 0.9) * cos(uv.y * 5.8 + t * 0.7) * 0.35;
-        hx += sin(((uv.x + eps) + uv.y) * 11.0 + t * 1.3) * 0.22;
-        hx += cos((uv.x + eps) * 17.0 - uv.y * 14.0 - t * 1.7) * 0.13;
-        hx += sin((uv.x + eps) * 23.0 + uv.y * 19.0 + t * 2.1) * 0.08;
-        hx += cos(((uv.x + eps) - uv.y) * 31.0 + t * 0.6) * 0.05;
-
-        float hy = 0.0;
-        hy += sin(uv.x * 6.5 + t * 0.9) * cos((uv.y + eps) * 5.8 + t * 0.7) * 0.35;
-        hy += sin((uv.x + (uv.y + eps)) * 11.0 + t * 1.3) * 0.22;
-        hy += cos(uv.x * 17.0 - (uv.y + eps) * 14.0 - t * 1.7) * 0.13;
-        hy += sin(uv.x * 23.0 + (uv.y + eps) * 19.0 + t * 2.1) * 0.08;
-        hy += cos((uv.x - (uv.y + eps)) * 31.0 + t * 0.6) * 0.05;
-
-        return normalize(vec3(h - hx, eps, h - hy));
-      }
-
       void main() {
-        vec3 n = getRippleNormal(vUv * 7.0, uTime);
+        vec3 n = normalize(vNormal_w);
+        vec3 v = normalize(vViewDir);
 
-        // Fresnel — more reflective at grazing angles
-        float cosTheta = max(dot(vViewDir, vec3(0.0, 1.0, 0.0)), 0.0);
-        float fresnel = pow(1.0 - cosTheta, 4.0) * 0.85 + 0.15;
+        // Fresnel — Schlick approximation
+        float cosTheta = max(dot(v, n), 0.0);
+        float fresnel = pow(1.0 - cosTheta, 5.0) * 0.85 + 0.15;
 
         // Water colors
-        vec3 deep = vec3(0.04, 0.12, 0.22);
-        vec3 mid = vec3(0.15, 0.38, 0.52);
-        vec3 highlight = vec3(0.55, 0.82, 0.95);
+        vec3 deep    = vec3(0.02, 0.08, 0.16);
+        vec3 surface = vec3(0.08, 0.28, 0.42);
+        vec3 sky     = vec3(0.35, 0.60, 0.82);
 
-        // Directional ripple lighting
-        vec3 lightDir = normalize(vec3(0.3, 1.0, 0.2));
-        float diff = dot(n, lightDir) * 0.5 + 0.5;
+        vec3 refractCol = mix(deep, surface, cosTheta);
+        vec3 col = mix(refractCol, sky, fresnel);
 
-        vec3 col = mix(deep, mid, diff);
-        col = mix(col, highlight, pow(diff, 5.0) * 0.6);
+        // Primary specular — sun-like
+        vec3 l1 = normalize(vec3(0.4, 1.0, 0.3));
+        float spec1 = pow(max(dot(n, normalize(l1 + v)), 0.0), 120.0);
+        col += vec3(1.0, 0.97, 0.92) * spec1 * 0.7;
 
-        // Specular highlights from ripples
-        vec3 halfDir = normalize(lightDir + vViewDir);
-        float spec = pow(max(dot(n, halfDir), 0.0), 80.0);
-        col += vec3(0.9, 0.95, 1.0) * spec * 0.5;
+        // Secondary specular — fill sparkle
+        vec3 l2 = normalize(vec3(-0.6, 0.8, -0.3));
+        float spec2 = pow(max(dot(n, normalize(l2 + v)), 0.0), 200.0);
+        col += vec3(0.85, 0.92, 1.0) * spec2 * 0.4;
 
-        // Secondary specular for sparkle
-        vec3 lightDir2 = normalize(vec3(-0.5, 0.8, -0.3));
-        vec3 halfDir2 = normalize(lightDir2 + vViewDir);
-        float spec2 = pow(max(dot(n, halfDir2), 0.0), 120.0);
-        col += vec3(0.8, 0.9, 1.0) * spec2 * 0.3;
+        // Edge darkening near tank walls
+        float edge = smoothstep(0.0, 0.12, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
+        col *= mix(0.6, 1.0, edge);
 
-        float alpha = mix(0.55, 0.92, fresnel);
+        float alpha = mix(0.45, 0.88, fresnel);
         gl_FragColor = vec4(col, alpha);
       }
     `,
@@ -211,7 +215,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   const topWater = new THREE.Mesh(topWaterGeo, topWaterMat)
   topWater.rotation.x = -Math.PI / 2
   topWater.position.y = TANK.height / 2 + 0.01
-  topWater.visible = false // toggled in render loop
+  topWater.visible = false
   scene.add(topWater)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level
