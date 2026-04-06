@@ -118,3 +118,8 @@ export function updateReact(fish: Fish, mouseWorldPos: THREE.Vector3, _dt: numbe
   _dir.normalize().multiplyScalar(fish.species.speed * 0.8)
   fish.targetVelocity.copy(_dir)
 }
+
+export function updateFeed(fish: Fish, flakePos: THREE.Vector3, _dt: number): void {
+  _dir.subVectors(flakePos, fish.position).normalize().multiplyScalar(fish.species.speed * 1.2)
+  fish.targetVelocity.copy(_dir)
+}
