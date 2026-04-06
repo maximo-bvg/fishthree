@@ -104,7 +104,7 @@ export class Fish {
     this.speciesId = speciesId
     this.species = SPECIES[speciesId]
     this.name = name
-    this.mesh = createFishMesh(this.species)
+    this.mesh = createFishMesh(this.species, speciesId)
     this.stateMachine = new FishStateMachine(this.species.behaviorType)
     this.velocity = new THREE.Vector3(
       (Math.random() - 0.5) * this.species.speed,

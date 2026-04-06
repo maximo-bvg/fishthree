@@ -12,6 +12,8 @@ export interface SpeciesDefinition {
   bodyWidth: number
   bodyHeight: number
   bodyLength: number
+  modelPath?: string   // path to GLB model in public/models/
+  modelScale?: number  // scale factor for the loaded model
 }
 
 export type SpeciesId = 'tetra' | 'clownfish' | 'angelfish' | 'pufferfish' | 'barracuda' | 'seahorse'
@@ -28,6 +30,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.12,
     bodyHeight: 0.15,
     bodyLength: 0.3,
+    modelPath: '/models/tetra.glb',
+    modelScale: 0.15,
   },
   clownfish: {
     name: 'Clownfish',
@@ -40,6 +44,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.2,
     bodyHeight: 0.25,
     bodyLength: 0.35,
+    modelPath: '/models/clownfish.glb',
+    modelScale: 0.25,
   },
   angelfish: {
     name: 'Angelfish',
@@ -52,6 +58,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.1,
     bodyHeight: 0.5,
     bodyLength: 0.4,
+    modelPath: '/models/angelfish.glb',
+    modelScale: 0.4,
   },
   pufferfish: {
     name: 'Pufferfish',
@@ -64,6 +72,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.35,
     bodyHeight: 0.35,
     bodyLength: 0.35,
+    modelPath: '/models/pufferfish.glb',
+    modelScale: 0.35,
   },
   barracuda: {
     name: 'Barracuda',
@@ -76,6 +86,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.15,
     bodyHeight: 0.2,
     bodyLength: 0.9,
+    modelPath: '/models/barracuda.glb',
+    modelScale: 0.6,
   },
   seahorse: {
     name: 'Seahorse',
@@ -88,5 +100,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyWidth: 0.1,
     bodyHeight: 0.35,
     bodyLength: 0.12,
+    modelPath: '/models/seahorse.glb',
+    modelScale: 0.25,
   },
 }

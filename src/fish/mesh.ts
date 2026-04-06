@@ -1,8 +1,63 @@
 import * as THREE from 'three'
-import { type SpeciesDefinition } from './species'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { type SpeciesDefinition, type SpeciesId } from './species'
 import { lowPolyMaterial, jitterVertices } from '../utils/geometry'
 
-export function createFishMesh(species: SpeciesDefinition): THREE.Group {
+const loader = new GLTFLoader()
+const modelCache = new Map<string, THREE.Group>()
+const failedModels = new Set<string>()
+
+/**
+ * Preload all GLB models for the given species. Call once at startup.
+ * Models that fail to load will silently fall back to procedural geometry.
+ */
+export async function preloadModels(species: Record<string, SpeciesDefinition>): Promise<void> {
+  const promises: Promise<void>[] = []
+  for (const [id, def] of Object.entries(species)) {
+    if (!def.modelPath || failedModels.has(id)) continue
+    promises.push(
+      loader.loadAsync(def.modelPath)
+        .then((gltf) => {
+          const model = gltf.scene
+          // Enable shadows on all meshes
+          model.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              child.castShadow = true
+            }
+          })
+          modelCache.set(id, model)
+          console.log(`Loaded model: ${id}`)
+        })
+        .catch(() => {
+          failedModels.add(id)
+          console.log(`Model not found for ${id}, using procedural mesh`)
+        })
+    )
+  }
+  await Promise.all(promises)
+}
+
+/**
+ * Create a fish mesh — uses loaded GLB if available, falls back to procedural.
+ */
+export function createFishMesh(species: SpeciesDefinition, speciesId?: SpeciesId): THREE.Group {
+  if (speciesId && modelCache.has(speciesId)) {
+    const clone = modelCache.get(speciesId)!.clone()
+    const scale = species.modelScale ?? species.size
+    clone.scale.setScalar(scale)
+
+    // Play animations if the model has them
+    clone.userData.hasGLB = true
+    return clone
+  }
+
+  return createProceduralFishMesh(species)
+}
+
+/**
+ * Create a fish mesh from Three.js primitives (original procedural approach).
+ */
+function createProceduralFishMesh(species: SpeciesDefinition): THREE.Group {
   const group = new THREE.Group()
   const mat = lowPolyMaterial(species.color)
 
@@ -65,7 +120,18 @@ export function createFishMesh(species: SpeciesDefinition): THREE.Group {
   return group
 }
 
+/**
+ * Animates the fish tail and body wiggle. Call every frame.
+ * For GLB models, this is a gentle whole-body sway (the model handles its own shape).
+ * For procedural meshes, animates tail and body parts individually.
+ */
 export function animateFishMesh(group: THREE.Group, time: number, speed: number, tailFrequency: number): void {
+  if (group.userData.hasGLB) {
+    // Gentle whole-body sway for loaded models
+    group.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.04 * speed
+    return
+  }
+
   const tail = group.getObjectByName('tail')
   if (tail) {
     tail.rotation.y = Math.sin(time * tailFrequency * Math.PI * 2) * 0.3 * speed

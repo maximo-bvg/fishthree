@@ -7,7 +7,8 @@ import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
 import { createLighting, updateCaustics } from './scene/lighting'
 import { Fish, type StateContext } from './fish/fish'
-import { type SpeciesId } from './fish/species'
+import { type SpeciesId, SPECIES } from './fish/species'
+import { preloadModels } from './fish/mesh'
 import {
   updateWander, updateSchool, updateFlee, updateHide,
   updateTerritorial, updatePredatorPatrol, updateReact,
@@ -284,7 +285,10 @@ function restoreState(): void {
   updateHUDCounts()
 }
 
-restoreState()
+// Preload GLB models, then restore state (spawns fish)
+preloadModels(SPECIES).then(() => {
+  restoreState()
+})
 
 // --- Fish behavior update ---
 function getDecorationPositions(): THREE.Vector3[] {
