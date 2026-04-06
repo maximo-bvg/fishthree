@@ -43,7 +43,7 @@ export async function preloadModels(species: Record<string, SpeciesDefinition>):
           box.getCenter(center)
 
           const maxDim = Math.max(nativeSize.x, nativeSize.y, nativeSize.z)
-          const targetSize = Math.max(def.bodyLength * 3, def.size * 5)
+          const targetSize = def.size * 3
           const scale = maxDim > 0 ? targetSize / maxDim : 1
 
           const rotation: [number, number, number] = (def.modelRotation ?? [0, 0, 0]) as [number, number, number]

@@ -131,9 +131,12 @@ export class Fish {
     this.mesh.position.addScaledVector(this.velocity, dt)
     this.clampToTank()
 
+    // Orient fish to face movement direction using yaw/pitch (no lookAt — avoids up-vector flips)
     if (this.velocity.lengthSq() > 0.001) {
-      const lookTarget = this.mesh.position.clone().add(this.velocity)
-      this.mesh.lookAt(lookTarget)
+      const dir = this.velocity
+      this.mesh.rotation.y = Math.atan2(dir.x, dir.z)
+      this.mesh.rotation.x = Math.asin(-dir.y / dir.length())
+      // Don't touch rotation.z — leave it at 0 (sway is on the inner model)
     }
 
     const speedFactor = this.velocity.length() / this.species.speed
