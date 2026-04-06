@@ -204,10 +204,10 @@ Auto-save on every change. Load on startup. No backend for v1.
 
 ### Dependencies
 
-- `three` — core 3D rendering
-- `vite` — dev server and bundling
+- `three` — core 3D rendering (ships with TypeScript definitions)
+- `vite` — dev server and bundling (native TypeScript support, zero config)
 
-No other runtime dependencies.
+No other runtime dependencies. Written in **TypeScript**.
 
 ### Project Structure
 
@@ -215,29 +215,30 @@ No other runtime dependencies.
 fishthree/
 ├── index.html
 ├── package.json
-├── vite.config.js
+├── tsconfig.json
+├── vite.config.ts
 ├── src/
-│   ├── main.js              — entry point, init scene/renderer/loop
+│   ├── main.ts              — entry point, init scene/renderer/loop
 │   ├── scene/
-│   │   ├── tank.js           — tank geometry (walls, floor, water surface)
-│   │   ├── lighting.js       — ambient, directional, caustics
-│   │   └── camera.js         — camera setup, parallax mouse tracking
+│   │   ├── tank.ts           — tank geometry (walls, floor, water surface)
+│   │   ├── lighting.ts       — ambient, directional, caustics
+│   │   └── camera.ts         — camera setup, parallax mouse tracking
 │   ├── fish/
-│   │   ├── species.js        — species definitions (geometry, size, behavior type)
-│   │   ├── fish.js           — fish entity class (mesh + state machine)
-│   │   ├── behaviors.js      — behavior implementations (school, flee, hide, etc.)
-│   │   └── boids.js          — boids algorithm for schooling
+│   │   ├── species.ts        — species definitions (geometry, size, behavior type)
+│   │   ├── fish.ts           — fish entity class (mesh + state machine)
+│   │   ├── behaviors.ts      — behavior implementations (school, flee, hide, etc.)
+│   │   └── boids.ts          — boids algorithm for schooling
 │   ├── decorations/
-│   │   ├── catalog.js        — all decoration definitions
-│   │   ├── slots.js          — slot zone positions and management
-│   │   └── effects.js        — sway animation, bubbler particles
+│   │   ├── catalog.ts        — all decoration definitions
+│   │   ├── slots.ts          — slot zone positions and management
+│   │   └── effects.ts        — sway animation, bubbler particles
 │   ├── ui/
-│   │   ├── hud.js            — top bar, sidebar, bottom bar
-│   │   ├── edit-mode.js      — edit mode overlay and inventory panel
-│   │   └── panels.js         — fish list, species picker, settings
+│   │   ├── hud.ts            — top bar, sidebar, bottom bar
+│   │   ├── edit-mode.ts      — edit mode overlay and inventory panel
+│   │   └── panels.ts         — fish list, species picker, settings
 │   └── utils/
-│       ├── storage.js        — localStorage save/load
-│       └── geometry.js       — shared low-poly geometry helpers
+│       ├── storage.ts        — localStorage save/load
+│       └── geometry.ts       — shared low-poly geometry helpers
 └── public/
     └── textures/             — sand, caustic patterns (minimal)
 ```
