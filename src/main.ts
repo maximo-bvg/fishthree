@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createTank, updateWaterSurface } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
+import { createLighting, updateCaustics } from './scene/lighting'
 
 const app = document.getElementById('app')!
 
@@ -16,9 +17,7 @@ scene.background = new THREE.Color(0x0a3d6b)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 
-// Temporary light so we can see the tank
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-scene.add(ambientLight)
+const lights = createLighting(scene)
 
 const tank = createTank(scene)
 
@@ -35,6 +34,7 @@ function animate() {
   const elapsed = clock.getElapsedTime()
   updateWaterSurface(tank.waterSurface, elapsed)
   updateParallax(camera)
+  updateCaustics(lights, elapsed)
   renderer.render(scene, camera)
 }
 
