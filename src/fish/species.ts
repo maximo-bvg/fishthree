@@ -64,7 +64,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
   pufferfish: {
     name: 'Pufferfish',
     size: 0.35,
-    speed: 1.0,
+    speed: 1.5,
     tailFrequency: 4,
     behaviorType: 'shy',
     personality: 'skittish',

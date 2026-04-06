@@ -51,12 +51,13 @@ const bloomPass = new UnrealBloomPass(
 )
 composer.addPass(bloomPass)
 
-const bokehPass = new BokehPass(scene, camera, {
-  focus: 14.0,
-  aperture: 0.002,
-  maxblur: 0.005,
-})
-composer.addPass(bokehPass)
+// Depth-of-field disabled — was blurring fish at different depths
+// const bokehPass = new BokehPass(scene, camera, {
+//   focus: 14.0,
+//   aperture: 0.002,
+//   maxblur: 0.005,
+// })
+// composer.addPass(bokehPass)
 
 const slotManager = new SlotManager()
 const effects = new DecorationEffects(scene)
