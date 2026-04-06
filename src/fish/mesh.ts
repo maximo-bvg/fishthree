@@ -333,60 +333,90 @@ export function animateFishMesh(group: THREE.Group, time: number, speed: number,
 
   if (group.userData.hasGLB) {
     const inner = group.children[0]
-    // Subtle whole-body roll (reduced — bones handle the main motion now)
+    const bones = group.userData.bones as FishBones | undefined
+    const freq = tailFrequency * Math.PI
+
+    // --- Whole-body sway: lateral shift + roll that follows the swim stroke ---
     if (inner) {
-      inner.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.03 * speed
+      // Roll tilts the body into the stroke — a gentle banking motion
+      inner.rotation.z = Math.sin(time * freq) * 0.06 * speed
+      // Subtle pitch bob — fish undulate vertically as they push through water
+      inner.rotation.x = Math.sin(time * freq * 2) * 0.015 * speed
     }
 
-    const bones = group.userData.bones as FishBones | undefined
     if (bones) {
       const { spineChain, finBones, restRotations } = bones
-      const freq = tailFrequency * Math.PI
-
-      // --- Spine undulation: S-wave traveling from head to tail ---
       const n = spineChain.length
+
+      // --- Spine undulation: realistic S-wave traveling head → tail ---
+      // Real fish keep their head nearly still while the wave amplifies toward
+      // the tail. We use a cubic ramp so the first ~30% of the body barely moves
+      // and the tail whips hard. A secondary harmonic adds organic asymmetry.
       for (let i = 0; i < n; i++) {
         const bone = spineChain[i]
         const rest = restRotations.get(bone)!
-        // t goes 0 (root) → 1 (tip)
-        const t = i / Math.max(1, n - 1)
-        // Amplitude ramps up toward the tail — exponential curve for a snappy tail
-        const amp = (0.02 + t * t * 0.28) * speed
-        // Phase offset creates the traveling wave
-        const phase = t * Math.PI * 1.5
-        bone.rotation.y = rest.y + Math.sin(time * freq + phase) * amp
+        const t = i / Math.max(1, n - 1) // 0 = head, 1 = tail tip
+
+        // Primary S-wave — cubic amplitude ramp for a snappy tail
+        const primaryAmp = (0.01 + t * t * t * 0.55) * speed
+        const primaryPhase = t * Math.PI * 1.8
+        const primary = Math.sin(time * freq + primaryPhase) * primaryAmp
+
+        // Secondary harmonic — adds organic irregularity (half the speed, offset phase)
+        const secondaryAmp = t * t * 0.08 * speed
+        const secondary = Math.sin(time * freq * 0.5 + t * Math.PI * 2.5) * secondaryAmp
+
+        // Head counter-rotation: first bone slightly opposes the wave
+        // so the head stays more stable while the body bends — like a real fish
+        const headCompensation = i === 0 ? -Math.sin(time * freq + Math.PI * 0.3) * 0.04 * speed : 0
+
+        bone.rotation.y = rest.y + primary + secondary + headCompensation
+
+        // Lateral tilt along the spine — each vertebra rolls slightly into the bend,
+        // giving a more 3D feel rather than a flat side-to-side wave
+        const rollAmp = t * t * 0.12 * speed
+        bone.rotation.z = rest.z + Math.cos(time * freq + primaryPhase) * rollAmp
+
+        // Very subtle pitch variation along spine — prevents "flat plane" look
+        const pitchAmp = t * 0.03 * speed
+        bone.rotation.x = rest.x + Math.sin(time * freq * 1.3 + t * Math.PI) * pitchAmp
       }
 
-      // --- Fin flapping (side-aware from bone names) ---
+      // --- Fin animation: sculling/rowing motion ---
       for (const bone of finBones) {
         const rest = restRotations.get(bone)!
         const name = bone.name.toLowerCase()
 
-        // End bones are chain terminators — skip them
         if (name.includes('end')) continue
 
-        // Detect side: R flaps opposite to L
         const isRight = name.includes('wingr') || name.includes('finr') || name.includes('right')
         const side = isRight ? 1 : -1
 
-        // Base bones (attached to body) lead; outer bones follow with delay
         const isBase = name.includes('body')
-        const amp = (isBase ? 0.18 : 0.10) * speed
-        const phase = isBase ? 0 : 0.4
+        // Pectoral fins row with a figure-8 motion: flap + sweep
+        const flapAmp = (isBase ? 0.25 : 0.15) * speed
+        const sweepAmp = (isBase ? 0.12 : 0.06) * speed
+        const phase = isBase ? 0 : 0.5
 
-        bone.rotation.z = rest.z + Math.sin(time * freq * 0.7 + phase) * amp * side
+        // Main flap (Z rotation — up/down or side-to-side depending on rig)
+        bone.rotation.z = rest.z + Math.sin(time * freq * 0.7 + phase) * flapAmp * side
+        // Forward/back sweep adds a rowing feel (Y rotation)
+        bone.rotation.y = rest.y + Math.cos(time * freq * 0.7 + phase) * sweepAmp
       }
     }
     return
   }
 
+  const freq = tailFrequency * Math.PI * 2
   const tail = group.getObjectByName('tail')
   if (tail) {
-    tail.rotation.y = Math.sin(time * tailFrequency * Math.PI * 2) * 0.3 * speed
+    tail.rotation.y = Math.sin(time * freq) * 0.4 * speed
+    tail.rotation.z = Math.cos(time * freq) * 0.08 * speed
   }
 
   const body = group.getObjectByName('body')
   if (body) {
-    body.rotation.y = Math.sin(time * tailFrequency * Math.PI * 2 + 0.5) * 0.05 * speed
+    body.rotation.y = Math.sin(time * freq + 0.6) * 0.08 * speed
+    body.rotation.z = Math.sin(time * freq) * 0.03 * speed
   }
 }
