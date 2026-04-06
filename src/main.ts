@@ -7,6 +7,7 @@ import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera } from './scene/camera'
 import { CameraController } from './scene/camera-modes'
 import { createLighting, updateCaustics } from './scene/lighting'
+import { DayNightCycle } from './scene/day-night'
 import {
   createParticles, updateParticles,
   createLightRays, updateLightRays,
@@ -70,6 +71,9 @@ composer.addPass(bloomPass)
 
 const underwaterPass = createUnderwaterPass()
 composer.addPass(underwaterPass)
+
+const dayNight = new DayNightCycle(lights, scene)
+dayNight.setUnderwaterPass(underwaterPass)
 
 // Depth-of-field disabled — was blurring fish at different depths
 // const bokehPass = new BokehPass(scene, camera, {
@@ -512,12 +516,21 @@ window.addEventListener('resize', () => {
 
 // --- Render loop ---
 const clock = new THREE.Clock()
+let lastTimeOfDay = ''
 
 function animate() {
   requestAnimationFrame(animate)
   const dt = Math.min(clock.getDelta(), 0.05)
   const elapsed = clock.getElapsedTime()
 
+  dayNight.update(dt)
+  if (dayNight.timeOfDay !== lastTimeOfDay) {
+    lastTimeOfDay = dayNight.timeOfDay
+    hud.updateTimeIcon(lastTimeOfDay)
+  }
+  for (const fish of fishes) {
+    fish.speedMultiplier = dayNight.speedMultiplier
+  }
   updateFishBehaviors(dt)
   updateWaterSurface(tankMeshes, dt, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)

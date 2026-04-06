@@ -20,6 +20,7 @@ export interface StateContext {
   mouse: ProximityInfo | null
   homeDecor: ProximityInfo | null
   nearestFlake: { distance: number } | null
+  timeOfDay?: string
 }
 
 export class FishStateMachine {
@@ -107,6 +108,7 @@ export class Fish {
   velocity: THREE.Vector3
   targetVelocity: THREE.Vector3
   targetFlakeId: number | null = null
+  speedMultiplier = 1.0
 
   private time = Math.random() * 100
 
@@ -139,7 +141,7 @@ export class Fish {
     this.time += dt
     this.applyWallAvoidance()
     this.velocity.lerp(this.targetVelocity, 0.05)
-    this.mesh.position.addScaledVector(this.velocity, dt)
+    this.mesh.position.addScaledVector(this.velocity, dt * this.speedMultiplier)
     this.clampToTank()
 
     // Orient fish to face movement direction using yaw/pitch (no lookAt — avoids up-vector flips)
