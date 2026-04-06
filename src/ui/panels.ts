@@ -66,6 +66,10 @@ export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: numbe
     pufferfish: 'Shy, hides near rocks',
     barracuda: 'Large predator patrol',
     seahorse: 'Clings to plants',
+    pleco: 'Slow bottom-dweller',
+    danio: 'Fast schooling fish',
+    jellyfish: 'Drifting, translucent',
+    guppy: 'Playful surface swimmer',
   }
 
   for (const [id, species] of Object.entries(SPECIES)) {

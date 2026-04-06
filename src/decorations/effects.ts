@@ -35,6 +35,15 @@ export class DecorationEffects {
       case 'tank_light':
         this.addSpotlight(mesh.position)
         break
+      case 'brain_coral':
+        this.swayingMeshes.push({ mesh, speed: 0.3, amplitude: 0.02 })
+        break
+      case 'kelp':
+        this.swayingMeshes.push({ mesh, speed: 1.5, amplitude: 0.15 })
+        break
+      case 'volcano_bubbler':
+        this.addBubbler(mesh.position.clone().add(new THREE.Vector3(0, 0.8, 0)))
+        break
     }
   }
 
