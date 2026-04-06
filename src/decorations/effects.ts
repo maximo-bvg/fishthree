@@ -13,6 +13,7 @@ export class DecorationEffects {
   private swayingMeshes: { mesh: THREE.Group; speed: number; amplitude: number }[] = []
   private bubblers: { origin: THREE.Vector3; particles: BubbleParticle[] }[] = []
   private spotlights: THREE.SpotLight[] = []
+  private pointLights: THREE.PointLight[] = []
   private lightCones: THREE.Mesh[] = []
   private lightLenses: THREE.Mesh[] = []
   private scene: THREE.Scene
@@ -90,9 +91,9 @@ export class DecorationEffects {
       mesh.rotation.x = Math.PI // flip upside down so lens faces up
     }
 
-    // Strong spotlight that's visible at night
-    const light = new THREE.SpotLight(0xffffaa, 30.0, 15, Math.PI / 5, 0.4)
-    light.decay = 1.0 // linear falloff instead of quadratic
+    // Directional spotlight — no distance decay so it actually reaches surfaces
+    const light = new THREE.SpotLight(0xffffaa, 150.0, 0, Math.PI / 4, 0.3)
+    light.decay = 0
     light.position.copy(position)
     light.target.position.set(
       position.x,
@@ -102,6 +103,13 @@ export class DecorationEffects {
     this.scene.add(light)
     this.scene.add(light.target)
     this.spotlights.push(light)
+
+    // Point light for omnidirectional fill around the light fixture
+    const fill = new THREE.PointLight(0xffffaa, 60.0, 0)
+    fill.decay = 2
+    fill.position.copy(position)
+    this.scene.add(fill)
+    this.pointLights.push(fill)
 
     // Visible volumetric light cone
     const coneHeight = 3.0
@@ -144,6 +152,11 @@ export class DecorationEffects {
   /** Get light cones for external modulation */
   getLightCones(): THREE.Mesh[] {
     return this.lightCones
+  }
+
+  /** Get point lights for external modulation */
+  getPointLights(): THREE.PointLight[] {
+    return this.pointLights
   }
 
   /** Get light lenses for external modulation */

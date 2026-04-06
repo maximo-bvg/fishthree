@@ -308,7 +308,10 @@ export class DayNightCycle {
       const lightStrength = 0.2 + nightFactor * 0.8
 
       for (const spot of this.decorationEffects.getSpotlights()) {
-        spot.intensity = 30.0 * lightStrength
+        spot.intensity = 150.0 * lightStrength
+      }
+      for (const pt of this.decorationEffects.getPointLights()) {
+        pt.intensity = 60.0 * lightStrength
       }
       for (const cone of this.decorationEffects.getLightCones()) {
         const mat = cone.material as THREE.MeshBasicMaterial
