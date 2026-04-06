@@ -387,19 +387,39 @@ export function createUnderwaterPass(): ShaderPass {
       varying vec2 vUv;
 
       void main() {
-        // Gentle wave distortion — everything ripples subtly
+        // Multi-frequency wave distortion — visible refraction
         vec2 uv = vUv;
-        uv.x += sin(vUv.y * 12.0 + uTime * 1.2) * 0.002;
-        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0015;
+        uv.x += sin(vUv.y * 8.0 + uTime * 1.2) * 0.003;
+        uv.x += sin(vUv.y * 17.0 - uTime * 0.7) * 0.0018;
+        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0025;
+        uv.y += cos(vUv.x * 20.0 - uTime * 1.1) * 0.0012;
 
-        vec4 color = texture2D(tDiffuse, uv);
+        // Light scattering — soft 5-tap blur
+        float scatter = 0.0015;
+        vec4 color = texture2D(tDiffuse, uv) * 0.36;
+        color += texture2D(tDiffuse, uv + vec2(scatter, 0.0)) * 0.16;
+        color += texture2D(tDiffuse, uv - vec2(scatter, 0.0)) * 0.16;
+        color += texture2D(tDiffuse, uv + vec2(0.0, scatter)) * 0.16;
+        color += texture2D(tDiffuse, uv - vec2(0.0, scatter)) * 0.16;
+
+        // Chromatic aberration — water disperses wavelengths
+        float ca = 0.0018;
+        color.r = mix(color.r, texture2D(tDiffuse, uv + vec2(ca, ca * 0.5)).r, 0.5);
+        color.b = mix(color.b, texture2D(tDiffuse, uv - vec2(ca, ca * 0.3)).b, 0.5);
 
         // Underwater color grading — tint driven by day/night cycle
-        color.rgb = mix(color.rgb, uWaterTint, 0.25);
+        color.rgb = mix(color.rgb, uWaterTint, 0.38);
 
-        // Desaturation — water absorbs warm colors
+        // Depth-gradient fog — bottom of screen = deeper = more tinted
+        float depthFog = smoothstep(0.85, 0.05, vUv.y);
+        color.rgb = mix(color.rgb, uWaterTint * 0.35, depthFog * 0.25);
+
+        // Desaturation — water absorbs warm colors first
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.5, 0.75, 1.0), 0.2);
+        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.45, 0.72, 1.0), 0.32);
+
+        // Light absorption
+        color.rgb *= 0.93;
 
         gl_FragColor = color;
       }

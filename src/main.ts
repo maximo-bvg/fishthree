@@ -47,7 +47,7 @@ const composer = new EffectComposer(renderer)
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x2a7abb)
-scene.fog = new THREE.FogExp2(0x1a7aaa, 0.05)
+scene.fog = new THREE.FogExp2(0x1a7aaa, 0.07)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 const cameraController = new CameraController(camera, renderer.domElement)
