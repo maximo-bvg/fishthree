@@ -5,6 +5,8 @@ export interface HUDCallbacks {
   onFishList: () => void
   onAddFish: () => void
   onScreenshot: () => void
+  onOrbitToggle: () => void
+  onResetCamera: () => void
   onSettings: () => void
   onTankNameChange: (name: string) => void
 }
@@ -51,6 +53,8 @@ export class HUD {
       { icon: '\u{1F41F}', action: callbacks.onFishList, title: 'Fish List' },
       { icon: '\u{2795}',  action: callbacks.onAddFish,  title: 'Add Fish' },
       { icon: '\u{1F4F7}', action: callbacks.onScreenshot, title: 'Screenshot' },
+      { icon: '\u{1F504}', action: callbacks.onOrbitToggle, title: 'Orbit Camera (O)' },
+      { icon: '\u{1F3E0}', action: callbacks.onResetCamera, title: 'Reset Camera (1)' },
       { icon: '\u{2699}',  action: callbacks.onSettings, title: 'Settings' },
     ]
 

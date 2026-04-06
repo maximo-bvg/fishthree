@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
-const BASE_POSITION = new THREE.Vector3(0, 0.5, 14)
-const LOOK_AT = new THREE.Vector3(0, 0, 0)
+export const BASE_POSITION = new THREE.Vector3(0, 0.5, 14)
+export const LOOK_AT = new THREE.Vector3(0, 0, 0)
 const PARALLAX_STRENGTH = 0.3
 const PARALLAX_SMOOTHING = 0.05
 
