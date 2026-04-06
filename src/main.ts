@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createTank, updateWaterSurface } from './scene/tank'
 
 const app = document.getElementById('app')!
 
@@ -15,11 +16,13 @@ scene.background = new THREE.Color(0x0a3d6b)
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, 0.5, 14)
 
-// Placeholder cube to verify rendering
-const geometry = new THREE.BoxGeometry(1, 1, 1)
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-const cube = new THREE.Mesh(geometry, material)
-scene.add(cube)
+// Temporary light so we can see the tank
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+scene.add(ambientLight)
+
+const tank = createTank(scene)
+
+const clock = new THREE.Clock()
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
@@ -29,7 +32,8 @@ window.addEventListener('resize', () => {
 
 function animate() {
   requestAnimationFrame(animate)
-  cube.rotation.y += 0.01
+  const elapsed = clock.getElapsedTime()
+  updateWaterSurface(tank.waterSurface, elapsed)
   renderer.render(scene, camera)
 }
 
