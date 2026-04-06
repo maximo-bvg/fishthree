@@ -3,7 +3,11 @@ import { TANK } from './tank'
 
 export interface Lights {
   ambient: THREE.AmbientLight
+  hemi: THREE.HemisphereLight
   overhead: THREE.DirectionalLight
+  fill: THREE.DirectionalLight
+  leftFill: THREE.DirectionalLight
+  rightFill: THREE.DirectionalLight
   causticLight: THREE.SpotLight
 }
 
@@ -50,7 +54,7 @@ export function createLighting(scene: THREE.Scene): Lights {
   scene.add(causticLight)
   scene.add(causticLight.target)
 
-  return { ambient, overhead, causticLight }
+  return { ambient, hemi, overhead, fill, leftFill, rightFill, causticLight }
 }
 
 export function updateCaustics(lights: Lights, time: number): void {
