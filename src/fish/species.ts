@@ -76,6 +76,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.35,
     modelPath: '/models/pufferfish.glb',
     modelScale: 0.35,
+    modelRotation: [0, 0, 0],
   },
   barracuda: {
     name: 'Barracuda',
