@@ -304,19 +304,19 @@ export class DayNightCycle {
     if (this.decorationEffects) {
       // Inverse of ambient: dark scene = bright tank light
       const nightFactor = 1.0 - Math.min(kf.ambientIntensity / 4.0, 1.0)
-      // Range: 0.3 (noon) to 1.0 (midnight)
-      const lightStrength = 0.3 + nightFactor * 0.7
+      // Range: 0.2 (noon) to 1.0 (midnight)
+      const lightStrength = 0.2 + nightFactor * 0.8
 
       for (const spot of this.decorationEffects.getSpotlights()) {
-        spot.intensity = 3.0 * lightStrength
+        spot.intensity = 30.0 * lightStrength
       }
       for (const cone of this.decorationEffects.getLightCones()) {
         const mat = cone.material as THREE.MeshBasicMaterial
-        mat.opacity = 0.04 + nightFactor * 0.12
+        mat.opacity = 0.03 + nightFactor * 0.15
       }
       for (const lens of this.decorationEffects.getLightLenses()) {
         const mat = lens.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 1.0 + nightFactor * 3.0
+        mat.emissiveIntensity = 1.0 + nightFactor * 4.0
       }
     }
   }

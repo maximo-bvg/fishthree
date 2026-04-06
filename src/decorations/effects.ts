@@ -91,7 +91,8 @@ export class DecorationEffects {
     }
 
     // Strong spotlight that's visible at night
-    const light = new THREE.SpotLight(0xffffaa, 3.0, 6, Math.PI / 5, 0.4)
+    const light = new THREE.SpotLight(0xffffaa, 30.0, 15, Math.PI / 5, 0.4)
+    light.decay = 1.0 // linear falloff instead of quadratic
     light.position.copy(position)
     light.target.position.set(
       position.x,
