@@ -6,6 +6,11 @@ import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { createTank, updateWaterSurface, TANK } from './scene/tank'
 import { createCamera, updateParallax } from './scene/camera'
 import { createLighting, updateCaustics } from './scene/lighting'
+import {
+  createParticles, updateParticles,
+  createLightRays, updateLightRays,
+  initBubbles, updateBubbles,
+} from './scene/underwater'
 import { Fish, type StateContext } from './fish/fish'
 import { type SpeciesId, SPECIES } from './fish/species'
 import { preloadModels } from './fish/mesh'
@@ -35,10 +40,16 @@ const composer = new EffectComposer(renderer)
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x0a3d6b)
+scene.fog = new THREE.FogExp2(0x0a4a7a, 0.025)
 
 const camera = createCamera(window.innerWidth / window.innerHeight)
 const tankMeshes = createTank(scene)
 const lights = createLighting(scene)
+
+// Underwater atmosphere
+const lightRays = createLightRays(scene)
+createParticles(scene)
+initBubbles(scene)
 
 const renderPass = new RenderPass(scene, camera)
 composer.addPass(renderPass)
@@ -416,10 +427,13 @@ function animate() {
   const elapsed = clock.getElapsedTime()
 
   updateFishBehaviors(dt)
-  updateWaterSurface(tankMeshes.waterSurface, elapsed)
+  updateWaterSurface(tankMeshes, elapsed)
   if (settings.caustics) updateCaustics(lights, elapsed)
   updateParallax(camera)
   effects.update(elapsed)
+  updateParticles(elapsed, dt)
+  updateLightRays(lightRays, elapsed)
+  updateBubbles(elapsed, dt, camera)
 
   bloomPass.enabled = settings.bloom
   composer.render()
