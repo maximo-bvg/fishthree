@@ -16,6 +16,63 @@ interface ModelData {
 const modelCache = new Map<string, ModelData>()
 const failedModels = new Set<string>()
 
+/** Bone references discovered from a rigged GLB model */
+interface FishBones {
+  /** Spine chain ordered root-to-tip (longest bone chain in the skeleton) */
+  spineChain: THREE.Bone[]
+  /** Bones that branch off the spine (fins, jaw, etc.) */
+  finBones: THREE.Bone[]
+  /** Rest-pose rotations so we can animate additively */
+  restRotations: Map<THREE.Bone, { x: number; y: number; z: number }>
+}
+
+/**
+ * Walk the skeleton and categorise bones by topology:
+ *  - The longest chain from the root bone = spine (head→tail)
+ *  - Everything else = fin/appendage bones
+ */
+function discoverBones(model: THREE.Object3D): FishBones | null {
+  const allBones: THREE.Bone[] = []
+  model.traverse((child) => {
+    if ((child as THREE.Bone).isBone) allBones.push(child as THREE.Bone)
+  })
+  if (allBones.length === 0) return null
+
+  // Root = bone whose parent is NOT a bone
+  const roots = allBones.filter(
+    (b) => !b.parent || !(b.parent as THREE.Bone).isBone,
+  )
+  if (roots.length === 0) return null
+
+  // Longest chain from root = spine
+  function longestChain(bone: THREE.Bone): THREE.Bone[] {
+    const kids = bone.children.filter((c) => (c as THREE.Bone).isBone) as THREE.Bone[]
+    if (kids.length === 0) return [bone]
+    let best: THREE.Bone[] = []
+    for (const kid of kids) {
+      const chain = longestChain(kid)
+      if (chain.length > best.length) best = chain
+    }
+    return [bone, ...best]
+  }
+
+  const spineChain = longestChain(roots[0])
+  const spineSet = new Set(spineChain)
+  const finBones = allBones.filter((b) => !spineSet.has(b))
+
+  // Store rest rotations
+  const restRotations = new Map<THREE.Bone, { x: number; y: number; z: number }>()
+  for (const bone of allBones) {
+    restRotations.set(bone, { x: bone.rotation.x, y: bone.rotation.y, z: bone.rotation.z })
+  }
+
+  console.log(
+    `  bones: spine[${spineChain.map((b) => b.name).join('→')}] fins[${finBones.map((b) => b.name).join(',')}]`,
+  )
+
+  return { spineChain, finBones, restRotations }
+}
+
 /**
  * Preload all GLB models for the given species. Call once at startup.
  * Stores model data for later cloning. Falls back to procedural geometry on failure.
@@ -121,6 +178,11 @@ function createGLBFishMesh(data: ModelData, species: SpeciesDefinition): THREE.G
   group.scale.setScalar(data.scale)
   group.add(modelClone)
   group.userData.hasGLB = true
+
+  // Discover skeleton bones for procedural animation
+  const bones = discoverBones(modelClone)
+  if (bones) group.userData.bones = bones
+
   return group
 }
 
@@ -192,14 +254,55 @@ function createProceduralFishMesh(species: SpeciesDefinition): THREE.Group {
 
 /**
  * Animates the fish mesh. Call every frame.
- * For GLB models: gentle sway on the inner model (outer group controlled by lookAt).
+ * For GLB models: drives skeleton bones — spine undulation + fin flapping.
  * For procedural: animates tail and body parts individually.
  */
 export function animateFishMesh(group: THREE.Group, time: number, speed: number, tailFrequency: number): void {
   if (group.userData.hasGLB) {
     const inner = group.children[0]
+    // Subtle whole-body roll (reduced — bones handle the main motion now)
     if (inner) {
-      inner.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.08 * speed
+      inner.rotation.z = Math.sin(time * tailFrequency * Math.PI) * 0.03 * speed
+    }
+
+    const bones = group.userData.bones as FishBones | undefined
+    if (bones) {
+      const { spineChain, finBones, restRotations } = bones
+      const freq = tailFrequency * Math.PI
+
+      // --- Spine undulation: S-wave traveling from head to tail ---
+      const n = spineChain.length
+      for (let i = 0; i < n; i++) {
+        const bone = spineChain[i]
+        const rest = restRotations.get(bone)!
+        // t goes 0 (root) → 1 (tip)
+        const t = i / Math.max(1, n - 1)
+        // Amplitude ramps up toward the tail — exponential curve for a snappy tail
+        const amp = (0.02 + t * t * 0.28) * speed
+        // Phase offset creates the traveling wave
+        const phase = t * Math.PI * 1.5
+        bone.rotation.y = rest.y + Math.sin(time * freq + phase) * amp
+      }
+
+      // --- Fin flapping (side-aware from bone names) ---
+      for (const bone of finBones) {
+        const rest = restRotations.get(bone)!
+        const name = bone.name.toLowerCase()
+
+        // End bones are chain terminators — skip them
+        if (name.includes('end')) continue
+
+        // Detect side: R flaps opposite to L
+        const isRight = name.includes('wingr') || name.includes('finr') || name.includes('right')
+        const side = isRight ? 1 : -1
+
+        // Base bones (attached to body) lead; outer bones follow with delay
+        const isBase = name.includes('body')
+        const amp = (isBase ? 0.18 : 0.10) * speed
+        const phase = isBase ? 0 : 0.4
+
+        bone.rotation.z = rest.z + Math.sin(time * freq * 0.7 + phase) * amp * side
+      }
     }
     return
   }
