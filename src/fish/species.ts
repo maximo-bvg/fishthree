@@ -97,8 +97,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
   },
   seahorse: {
     name: 'Seahorse',
-    size: 0.25,
-    speed: 0.6,
+    size: 0.5,
+    speed: 1.2,
     tailFrequency: 2,
     behaviorType: 'anchorer',
     personality: 'curious',
@@ -107,7 +107,7 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyHeight: 0.35,
     bodyLength: 0.12,
     modelPath: '/models/seahorse.glb',
-    modelScale: 0.25,
-    modelRotation: [Math.PI, 0, 0],  // flip upright only — wrapper handles facing direction
+    modelScale: 0.5,
+    modelRotation: [0, 0, 0],
   },
 }
