@@ -127,6 +127,7 @@ export class Fish {
 
   update(dt: number): void {
     this.time += dt
+    this.applyWallAvoidance()
     this.velocity.lerp(this.targetVelocity, 0.05)
     this.mesh.position.addScaledVector(this.velocity, dt)
     this.clampToTank()
@@ -141,6 +142,40 @@ export class Fish {
 
     const speedFactor = this.velocity.length() / this.species.speed
     animateFishMesh(this.mesh, this.time, speedFactor, this.species.tailFrequency)
+  }
+
+  private applyWallAvoidance(): void {
+    const pos = this.mesh.position
+    const m = this.species.size
+    const hw = TANK.width / 2 - m
+    const hh = TANK.height / 2 - m
+    const hd = TANK.depth / 2 - m
+    const margin = 2.0
+    const strength = this.species.speed * 1.5
+
+    if (pos.x > hw - margin) {
+      const t = (pos.x - (hw - margin)) / margin
+      this.targetVelocity.x -= strength * t * t
+    } else if (pos.x < -hw + margin) {
+      const t = ((-hw + margin) - pos.x) / margin
+      this.targetVelocity.x += strength * t * t
+    }
+
+    if (pos.y > hh - margin) {
+      const t = (pos.y - (hh - margin)) / margin
+      this.targetVelocity.y -= strength * t * t
+    } else if (pos.y < -hh + margin) {
+      const t = ((-hh + margin) - pos.y) / margin
+      this.targetVelocity.y += strength * t * t
+    }
+
+    if (pos.z > hd - margin) {
+      const t = (pos.z - (hd - margin)) / margin
+      this.targetVelocity.z -= strength * t * t
+    } else if (pos.z < -hd + margin) {
+      const t = ((-hd + margin) - pos.z) / margin
+      this.targetVelocity.z += strength * t * t
+    }
   }
 
   private clampToTank(): void {

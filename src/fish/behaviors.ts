@@ -28,7 +28,21 @@ export function updateSchool(fish: Fish, school: Fish[], _dt: number): void {
   const agents = school.map(f => ({ position: f.position, velocity: f.velocity }))
   const self = { position: fish.position, velocity: fish.velocity }
   const force = computeBoids(self, agents, BOIDS_DEFAULTS)
-  fish.targetVelocity.add(force).clampLength(0, fish.species.speed)
+
+  // Start from current velocity and apply boid steering (don't accumulate)
+  fish.targetVelocity.copy(fish.velocity).add(force)
+
+  // If velocity is near zero (deadlocked school), pick a random direction
+  if (fish.targetVelocity.lengthSq() < 0.1) {
+    fish.targetVelocity.set(
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 0.4,
+      (Math.random() - 0.5) * 0.6,
+    )
+  }
+
+  // Boids steer direction — always maintain swimming speed
+  fish.targetVelocity.normalize().multiplyScalar(fish.species.speed)
 }
 
 export function updateFlee(fish: Fish, threats: THREE.Vector3[], _dt: number): void {
