@@ -13,6 +13,7 @@ export interface TankMeshes {
   rightWall: THREE.Mesh
   floor: THREE.Mesh
   waterSurface: Water
+  topWater: THREE.Mesh
   frontGlass: THREE.Mesh
   waterLines: THREE.Mesh[]
 }
@@ -108,18 +109,110 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const waterSurface = new Water(waterGeo, {
-    color: 0x4aaace,
-    scale: 1,
-    flowDirection: new THREE.Vector2(0.15, 0.1),
-    flowSpeed: 0.01,
-    reflectivity: 0.02,
-    textureWidth: 512,
-    textureHeight: 512,
+    color: 0x99e0ff,
+    scale: 7,
+    flowDirection: new THREE.Vector2(1, 1),
+    flowSpeed: 0.03,
+    reflectivity: 0.5,
+    textureWidth: 1024,
+    textureHeight: 1024,
   })
   waterSurface.rotation.x = -Math.PI / 2
   waterSurface.position.y = TANK.height / 2
   waterSurface.material.side = THREE.DoubleSide
   scene.add(waterSurface)
+
+  // Top-view water surface — custom ripple shader visible when camera is above
+  const topWaterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
+  const topWaterMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vViewDir;
+      void main() {
+        vUv = uv;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vViewDir = normalize(cameraPosition - wp.xyz);
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vViewDir;
+
+      vec3 getRippleNormal(vec2 uv, float t) {
+        float eps = 0.008;
+        // Multi-octave height field
+        float h = 0.0;
+        h += sin(uv.x * 6.5 + t * 0.9) * cos(uv.y * 5.8 + t * 0.7) * 0.35;
+        h += sin((uv.x + uv.y) * 11.0 + t * 1.3) * 0.22;
+        h += cos(uv.x * 17.0 - uv.y * 14.0 - t * 1.7) * 0.13;
+        h += sin(uv.x * 23.0 + uv.y * 19.0 + t * 2.1) * 0.08;
+        h += cos((uv.x - uv.y) * 31.0 + t * 0.6) * 0.05;
+
+        float hx = 0.0;
+        hx += sin((uv.x + eps) * 6.5 + t * 0.9) * cos(uv.y * 5.8 + t * 0.7) * 0.35;
+        hx += sin(((uv.x + eps) + uv.y) * 11.0 + t * 1.3) * 0.22;
+        hx += cos((uv.x + eps) * 17.0 - uv.y * 14.0 - t * 1.7) * 0.13;
+        hx += sin((uv.x + eps) * 23.0 + uv.y * 19.0 + t * 2.1) * 0.08;
+        hx += cos(((uv.x + eps) - uv.y) * 31.0 + t * 0.6) * 0.05;
+
+        float hy = 0.0;
+        hy += sin(uv.x * 6.5 + t * 0.9) * cos((uv.y + eps) * 5.8 + t * 0.7) * 0.35;
+        hy += sin((uv.x + (uv.y + eps)) * 11.0 + t * 1.3) * 0.22;
+        hy += cos(uv.x * 17.0 - (uv.y + eps) * 14.0 - t * 1.7) * 0.13;
+        hy += sin(uv.x * 23.0 + (uv.y + eps) * 19.0 + t * 2.1) * 0.08;
+        hy += cos((uv.x - (uv.y + eps)) * 31.0 + t * 0.6) * 0.05;
+
+        return normalize(vec3(h - hx, eps, h - hy));
+      }
+
+      void main() {
+        vec3 n = getRippleNormal(vUv * 7.0, uTime);
+
+        // Fresnel — more reflective at grazing angles
+        float cosTheta = max(dot(vViewDir, vec3(0.0, 1.0, 0.0)), 0.0);
+        float fresnel = pow(1.0 - cosTheta, 4.0) * 0.85 + 0.15;
+
+        // Water colors
+        vec3 deep = vec3(0.04, 0.12, 0.22);
+        vec3 mid = vec3(0.15, 0.38, 0.52);
+        vec3 highlight = vec3(0.55, 0.82, 0.95);
+
+        // Directional ripple lighting
+        vec3 lightDir = normalize(vec3(0.3, 1.0, 0.2));
+        float diff = dot(n, lightDir) * 0.5 + 0.5;
+
+        vec3 col = mix(deep, mid, diff);
+        col = mix(col, highlight, pow(diff, 5.0) * 0.6);
+
+        // Specular highlights from ripples
+        vec3 halfDir = normalize(lightDir + vViewDir);
+        float spec = pow(max(dot(n, halfDir), 0.0), 80.0);
+        col += vec3(0.9, 0.95, 1.0) * spec * 0.5;
+
+        // Secondary specular for sparkle
+        vec3 lightDir2 = normalize(vec3(-0.5, 0.8, -0.3));
+        vec3 halfDir2 = normalize(lightDir2 + vViewDir);
+        float spec2 = pow(max(dot(n, halfDir2), 0.0), 120.0);
+        col += vec3(0.8, 0.9, 1.0) * spec2 * 0.3;
+
+        float alpha = mix(0.55, 0.92, fresnel);
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  })
+  const topWater = new THREE.Mesh(topWaterGeo, topWaterMat)
+  topWater.rotation.x = -Math.PI / 2
+  topWater.position.y = TANK.height / 2 + 0.01
+  topWater.visible = false // toggled in render loop
+  scene.add(topWater)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level
   const waterLineGeo = new THREE.PlaneGeometry(TANK.width, 0.15)
@@ -231,11 +324,12 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   scene.add(airGapRight)
 
   const waterLines = [waterLine, waterLineBack, waterLineLeft, waterLineRight]
-  return { backWall, leftWall, rightWall, floor, waterSurface, frontGlass, waterLines }
+  return { backWall, leftWall, rightWall, floor, waterSurface, topWater, frontGlass, waterLines }
 }
 
 export function updateWaterSurface(meshes: TankMeshes, dt: number, time: number): void {
   ;(meshes.frontGlass.material as THREE.ShaderMaterial).uniforms.uTime.value = time
+  ;(meshes.topWater.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   for (const wl of meshes.waterLines) {
     ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   }

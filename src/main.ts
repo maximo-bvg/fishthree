@@ -591,8 +591,11 @@ function animate() {
   updateCausticOverlays(elapsed)
   updateUnderwaterPass(underwaterPass, elapsed)
 
-  // Hide water surface when camera is above it to prevent Water2 render state corruption
-  tankMeshes.waterSurface.visible = camera.position.y < TANK.height / 2
+  // Swap water meshes based on camera position — Water2 breaks above the surface
+  const aboveWater = camera.position.y >= TANK.height / 2
+  tankMeshes.waterSurface.visible = !aboveWater
+  tankMeshes.topWater.visible = aboveWater
+  underwaterPass.enabled = !aboveWater
 
   bloomPass.enabled = settings.bloom
   composer.render()
