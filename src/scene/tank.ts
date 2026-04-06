@@ -31,7 +31,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     backColors.push(r, g, b)
   }
   backGeo.setAttribute('color', new THREE.Float32BufferAttribute(backColors, 3))
-  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.FrontSide })
+  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide })
   const backWall = new THREE.Mesh(backGeo, backMat)
   backWall.position.set(0, 0, -TANK.depth / 2)
   backWall.receiveShadow = true
@@ -98,7 +98,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
 
   // Floor — sandy color
   const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x9a7a45, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x9a7a45, roughness: 0.95, side: THREE.DoubleSide })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = -TANK.height / 2
@@ -108,17 +108,17 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const waterSurface = new Water(waterGeo, {
-    color: 0x0d4a6a,
+    color: 0x4aaace,
     scale: 1,
     flowDirection: new THREE.Vector2(0.15, 0.1),
     flowSpeed: 0.01,
-    reflectivity: 0.6,
+    reflectivity: 0.02,
     textureWidth: 512,
     textureHeight: 512,
   })
   waterSurface.rotation.x = -Math.PI / 2
   waterSurface.position.y = TANK.height / 2
-  waterSurface.material.side = THREE.DoubleSide
+  waterSurface.material.side = THREE.BackSide
   scene.add(waterSurface)
 
   // Water line / meniscus — bright shimmering strip on the front glass at water level
