@@ -17,6 +17,9 @@ export interface TankSettings {
   caustics: boolean
   bloom: boolean
   swayIntensity: number
+  masterVolume: number
+  ambientVolume: number
+  sfxVolume: number
 }
 
 export interface TankState {
@@ -44,4 +47,7 @@ export const DEFAULT_SETTINGS: TankSettings = {
   caustics: true,
   bloom: true,
   swayIntensity: 0.5,
+  masterVolume: 0.5,
+  ambientVolume: 0.5,
+  sfxVolume: 0.5,
 }
