@@ -6,6 +6,8 @@ const STORAGE_KEY = 'fishthree-state'
 export interface FishSave {
   speciesId: SpeciesId
   name: string
+  hunger: number
+  health: number
 }
 
 export interface DecorationSave {
@@ -24,11 +26,23 @@ export interface TankSettings {
   sfxVolume: number
 }
 
+export interface EconomyState {
+  coins: number
+  totalCoinsEarned: number
+  lastDailyBonus: string | null
+  dailyStreak: number
+  milestones: string[]
+  lastSaveTimestamp: string
+  playerName: string | null
+  totalDeaths: number
+}
+
 export interface TankState {
   tankName: string
   fishes: FishSave[]
   decorations: DecorationSave[]
   settings: TankSettings
+  economy?: EconomyState
 }
 
 export function saveState(state: TankState): void {
@@ -53,4 +67,15 @@ export const DEFAULT_SETTINGS: TankSettings = {
   masterVolume: 0.5,
   ambientVolume: 0.5,
   sfxVolume: 0.5,
+}
+
+export const DEFAULT_ECONOMY: EconomyState = {
+  coins: 0,
+  totalCoinsEarned: 0,
+  lastDailyBonus: null,
+  dailyStreak: 0,
+  milestones: [],
+  lastSaveTimestamp: new Date().toISOString(),
+  playerName: null,
+  totalDeaths: 0,
 }
