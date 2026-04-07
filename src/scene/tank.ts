@@ -471,12 +471,13 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   base.position.set(0, -hh - bar - 0.3, 0)
   scene.add(base)
 
-  // Top frame + posts on layer 1 — rendered after post-processing
+  // All frame parts on layer 1 — rendered after post-processing
   // so the underwater wave distortion doesn't affect the rigid frame.
-  // Bottom bars + base stay on layer 0 so they depth-test against the floor.
   const layer1Parts = [
     topFront, topBack, topLeft, topRight,
+    botFront, botBack, botLeft, botRight,
     postFL, postFR, postBL, postBR,
+    base,
   ]
   for (const part of layer1Parts) part.layers.set(1)
 
