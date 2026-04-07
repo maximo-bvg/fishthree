@@ -138,10 +138,11 @@ const slotIndicators: THREE.Mesh[] = []
 function createSlotIndicators(): void {
   const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8)
   const mat = new THREE.MeshBasicMaterial({
-    color: 0x22aa55,
+    color: 0xffffff,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.7,
     wireframe: true,
+    depthTest: false,
   })
   for (const def of SLOT_DEFINITIONS) {
     const indicator = new THREE.Mesh(geo, mat.clone())
@@ -158,7 +159,7 @@ function showSlotIndicators(): void {
     const slot = slotManager.getSlot(i)
     ind.visible = true
     ;(ind.material as THREE.MeshBasicMaterial).color.setHex(
-      slot.decorationId ? 0xff6644 : 0x22aa55
+      slot.decorationId ? 0xff8855 : 0xffffff
     )
   })
 }
