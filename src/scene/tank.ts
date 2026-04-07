@@ -26,13 +26,13 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   for (let i = 0; i < backPos.count; i++) {
     const y = backPos.getY(i)
     const t = (y + TANK.height / 2) / TANK.height
-    const r = THREE.MathUtils.lerp(0.06, 0.15, t)
-    const g = THREE.MathUtils.lerp(0.30, 0.55, t)
-    const b = THREE.MathUtils.lerp(0.55, 0.85, t)
+    const r = THREE.MathUtils.lerp(0.12, 0.18, t)
+    const g = THREE.MathUtils.lerp(0.38, 0.58, t)
+    const b = THREE.MathUtils.lerp(0.62, 0.88, t)
     backColors.push(r, g, b)
   }
   backGeo.setAttribute('color', new THREE.Float32BufferAttribute(backColors, 3))
-  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide })
+  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0x0a2040, emissiveIntensity: 1.0, side: THREE.DoubleSide })
   const backWall = new THREE.Mesh(backGeo, backMat)
   backWall.position.set(0, 0, -TANK.depth / 2)
   backWall.receiveShadow = true
@@ -146,9 +146,37 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   frontGlass.position.set(0, 0, TANK.depth / 2)
   scene.add(frontGlass)
 
-  // Floor — sandy color
+  // Floor — procedural sand texture
+  const sandSize = 256
+  const sandCanvas = document.createElement('canvas')
+  sandCanvas.width = sandSize
+  sandCanvas.height = sandSize
+  const sandCtx = sandCanvas.getContext('2d')!
+  const sandData = sandCtx.createImageData(sandSize, sandSize)
+  const sd = sandData.data
+  for (let i = 0; i < sd.length; i += 4) {
+    const grain = Math.random() * 40 - 20
+    const coarse = Math.sin((i / 4) * 0.07) * 10 + Math.cos((i / 4) * 0.13) * 8
+    sd[i] = Math.min(255, Math.max(0, 215 + grain + coarse))
+    sd[i + 1] = Math.min(255, Math.max(0, 190 + grain + coarse))
+    sd[i + 2] = Math.min(255, Math.max(0, 135 + (grain + coarse) * 0.6))
+    sd[i + 3] = 255
+  }
+  sandCtx.putImageData(sandData, 0, 0)
+  const sandTex = new THREE.CanvasTexture(sandCanvas)
+  sandTex.wrapS = THREE.RepeatWrapping
+  sandTex.wrapT = THREE.RepeatWrapping
+  sandTex.repeat.set(4, 2)
+
   const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x9a7a45, roughness: 0.95, side: THREE.DoubleSide })
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: sandTex,
+    color: 0xd4b880,
+    emissive: 0xb08040,
+    emissiveIntensity: 1.5,
+    roughness: 0.92,
+    side: THREE.DoubleSide,
+  })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = -TANK.height / 2
@@ -392,15 +420,14 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   base.position.set(0, -hh - bar - 0.3, 0)
   scene.add(base)
 
-  // Put all frame meshes on layer 1 — rendered after post-processing
-  // so the underwater wave distortion doesn't affect the rigid frame
-  const frameParts = [
+  // Top frame + posts on layer 1 — rendered after post-processing
+  // so the underwater wave distortion doesn't affect the rigid frame.
+  // Bottom bars + base stay on layer 0 so they depth-test against the floor.
+  const layer1Parts = [
     topFront, topBack, topLeft, topRight,
-    botFront, botBack, botLeft, botRight,
     postFL, postFR, postBL, postBR,
-    base,
   ]
-  for (const part of frameParts) part.layers.set(1)
+  for (const part of layer1Parts) part.layers.set(1)
 
   // Dark interior walls above water line (air gap between water surface and top frame)
   const airGapHeight = bar
