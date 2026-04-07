@@ -206,17 +206,17 @@ export function createTank(scene: THREE.Scene): TankMeshes {
 
       const val = 0.45 + dune + ripple + grain
 
-      // Warm sand palette — deeper contrast between troughs and crests
-      const r = Math.min(255, Math.max(0, val * 220))
-      const g = Math.min(255, Math.max(0, val * 190))
-      const b = Math.min(255, Math.max(0, val * 125))
+      // White aragonite palette — bright with subtle warm variation
+      const r = Math.min(255, Math.max(0, val * 240))
+      const g = Math.min(255, Math.max(0, val * 236))
+      const b = Math.min(255, Math.max(0, val * 224))
 
-      // Occasional dark pebble
-      if (Math.random() < 0.003) {
-        const dark = 0.3 + Math.random() * 0.2
-        sd[i] = dark * 140
-        sd[i + 1] = dark * 120
-        sd[i + 2] = dark * 90
+      // Occasional dark grain (less frequent in white sand)
+      if (Math.random() < 0.002) {
+        const dark = 0.6 + Math.random() * 0.2
+        sd[i] = dark * 220
+        sd[i + 1] = dark * 210
+        sd[i + 2] = dark * 195
       } else {
         sd[i] = r
         sd[i + 1] = g
@@ -231,18 +231,43 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   sandTex.wrapT = THREE.RepeatWrapping
   sandTex.repeat.set(3, 1.5)
 
-  const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const floorMat = new THREE.MeshStandardMaterial({
     map: sandTex,
-    color: 0xc8a870,
-    emissive: 0x8a6530,
-    emissiveIntensity: 0.6,
+    color: 0xf0ece0,
+    emissive: 0xd0c8b0,
+    emissiveIntensity: 0.3,
     roughness: 0.92,
     side: THREE.DoubleSide,
   })
+
+  // Subdivided plane for vertex displacement
+  const floorGeo = new THREE.PlaneGeometry(
+    TANK.width, TANK.depth,
+    TANK.sand.segmentsX, TANK.sand.segmentsZ,
+  )
+  const floorPos = floorGeo.attributes.position as THREE.BufferAttribute
+
+  // Displace vertices with FBM noise for subtle undulations
+  // PlaneGeometry is in X-Y plane. After rotation -PI/2 around X:
+  //   world_x = local_x, world_z = -local_y, world_y = mesh.position.y + local_z
+  // So we modify local Z to create world-Y displacement.
+  for (let i = 0; i < floorPos.count; i++) {
+    const lx = floorPos.getX(i)
+    const ly = floorPos.getY(i)
+    // Normalize to 0-1 range for noise input
+    const u = (lx + TANK.width / 2) / TANK.width
+    const v = (ly + TANK.depth / 2) / TANK.depth
+    // Large-scale undulation
+    const dune = fbm(u * 6, v * 6) * TANK.sand.undulation
+    // Fine grain variation
+    const fine = fbm(u * 25 + 7.3, v * 25 + 3.1) * TANK.sand.grain
+    floorPos.setZ(i, dune + fine)
+  }
+  floorGeo.computeVertexNormals()
+
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
-  floor.position.y = -TANK.height / 2
+  floor.position.y = SAND_SURFACE_Y
   floor.receiveShadow = true
   scene.add(floor)
 
