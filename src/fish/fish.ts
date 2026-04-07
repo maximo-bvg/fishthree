@@ -75,6 +75,16 @@ export class FishStateMachine {
       return
     }
 
+    // Starving fish lose behavior — only seek food or wander sluggishly
+    if ((ctx.hunger ?? 0) > 0.9) {
+      if (hasNearFlake) {
+        this.current = 'feed'
+        return
+      }
+      this.current = 'wander'
+      return
+    }
+
     // Behavior-specific states
     switch (this.behaviorType) {
       case 'schooling':
