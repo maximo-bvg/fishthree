@@ -31,8 +31,15 @@ import { preloadDecorationModels } from './decorations/model-loader'
 import { HUD } from './ui/hud'
 import { EditModeUI } from './ui/edit-mode'
 import { showFishListPanel, showAddFishPanel, showSettingsPanel, type PanelCallbacks } from './ui/panels'
-import { saveState, loadState, DEFAULT_SETTINGS, type TankState, type TankSettings } from './utils/storage'
+import { saveState, loadState, DEFAULT_SETTINGS, type TankState, type TankSettings, type EconomyState, DEFAULT_ECONOMY } from './utils/storage'
 import { AudioManager } from './audio/audio-manager'
+import { GameState } from './game/state'
+import {
+  SPECIES_ECONOMY, DECORATION_PRICES, FOOD_COST, FEEDING_BONUS,
+  STARTING_COINS, PASSIVE_INCOME_HEALTH_FLOOR,
+} from './game/economy'
+import { tickHunger, tickHealth, computeOfflineHunger } from './game/health'
+import { showToast } from './ui/toast'
 
 // --- Renderer setup ---
 const app = document.getElementById('app')!
@@ -108,6 +115,7 @@ let settings: TankSettings = { ...DEFAULT_SETTINGS }
 let isEditMode = false
 let editModeUI: EditModeUI | null = null
 let selectedDecorationId: DecorationId | null = null
+const gameState = new GameState()
 
 const MAX_FISH = 12
 const MAX_DECOR = 20
@@ -292,18 +300,28 @@ window.addEventListener('click', (e) => {
       Math.abs(waterIntersect.x) < TANK.width / 2 &&
       Math.abs(waterIntersect.z) < TANK.depth / 2
     ) {
-      flakeManager.spawnCluster(waterIntersect.clone())
+      if (gameState.spendCoins(FOOD_COST)) {
+        flakeManager.spawnCluster(waterIntersect.clone())
+        hud.updateCoins(gameState.coins)
+        hud.showCoinAnimation(-FOOD_COST)
+      }
     }
   }
 })
 
 // --- Fish management ---
-function addFish(speciesId: SpeciesId, name: string): void {
+function addFish(speciesId: SpeciesId, name: string, fromShop = false): void {
   if (fishes.length >= MAX_FISH) return
+  if (fromShop) {
+    const price = SPECIES_ECONOMY[speciesId].cost
+    if (!gameState.spendCoins(price)) return
+    hud.showCoinAnimation(-price)
+  }
   const fish = new Fish(speciesId, name)
   fishes.push(fish)
   scene.add(fish.mesh)
   updateHUDCounts()
+  hud.updateCoins(gameState.coins)
   persistState()
 }
 
@@ -318,7 +336,7 @@ function removeFish(index: number): void {
 
 // --- HUD ---
 const panelCallbacks: PanelCallbacks = {
-  onAddFish: (speciesId, name) => { addFish(speciesId, name) },
+  onAddFish: (speciesId, name) => { addFish(speciesId, name, true) },
   onRemoveFish: (index) => { removeFish(index) },
   onRenameFish: (index, name) => {
     if (index >= 0 && index < fishes.length) {
@@ -372,7 +390,7 @@ const panelCallbacks: PanelCallbacks = {
 const hud = new HUD(app, {
   onEditTank: () => enterEditMode(),
   onFishList: () => showFishListPanel(hud, fishes, panelCallbacks),
-  onAddFish: () => showAddFishPanel(hud, fishes.length, MAX_FISH, panelCallbacks),
+  onAddFish: () => showAddFishPanel(hud, fishes.length, MAX_FISH, gameState.coins, panelCallbacks),
   onScreenshot: panelCallbacks.onScreenshot,
   onOrbitToggle: () => cameraController.toOrbit(),
   onResetCamera: () => cameraController.toDefault(),
@@ -403,6 +421,14 @@ function enterEditMode(): void {
   editModeUI = new EditModeUI(app, {
     onSelectItem: (id) => { selectedDecorationId = id },
     onDone: () => exitEditMode(),
+    getCoins: () => gameState.coins,
+    onBuyDecoration: (id) => {
+      const price = DECORATION_PRICES[id]
+      if (!gameState.spendCoins(price)) return false
+      hud.showCoinAnimation(-price)
+      hud.updateCoins(gameState.coins)
+      return true
+    },
   })
   audioManager.playUI('edit-enter')
   editModeUI.onAudioTrigger = (sound) => {
@@ -423,9 +449,15 @@ function exitEditMode(): void {
 function persistState(): void {
   const state: TankState = {
     tankName,
-    fishes: fishes.map(f => ({ speciesId: f.speciesId, name: f.name })),
+    fishes: fishes.map(f => ({
+      speciesId: f.speciesId,
+      name: f.name,
+      hunger: f.hunger,
+      health: f.health,
+    })),
     decorations: slotManager.serialize(),
     settings,
+    economy: gameState.serialize(),
   }
   saveState(state)
 }
@@ -433,14 +465,9 @@ function persistState(): void {
 function restoreState(): void {
   const state = loadState()
   if (!state) {
-    addFish('tetra', 'Neon 1')
-    addFish('tetra', 'Neon 2')
-    addFish('tetra', 'Neon 3')
-    addFish('clownfish', 'Nemo')
-    addFish('angelfish', 'Grace')
-    addFish('pufferfish', 'Puff')
-    addFish('barracuda', 'Cuda')
-    addFish('seahorse', 'Coral')
+    // New player: empty tank, starting coins
+    gameState.earnCoins(STARTING_COINS, 'new_game')
+    showToast('Welcome! Visit the shop to buy your first fish.')
     return
   }
 
@@ -453,8 +480,53 @@ function restoreState(): void {
   audioManager.setAmbientVolume(settings.ambientVolume)
   audioManager.setSfxVolume(settings.sfxVolume)
 
+  // Restore economy (or migrate)
+  if (state.economy) {
+    const restored = GameState.deserialize(state.economy)
+    gameState.coins = restored.coins
+    gameState.totalCoinsEarned = restored.totalCoinsEarned
+    gameState.lastDailyBonus = restored.lastDailyBonus
+    gameState.dailyStreak = restored.dailyStreak
+    gameState.completedMilestones = restored.completedMilestones
+    gameState.lastSaveTimestamp = restored.lastSaveTimestamp
+    gameState.playerName = restored.playerName
+    gameState.totalDeaths = restored.totalDeaths
+  } else {
+    // Migration: existing player without economy data
+    const migrationBonus = state.fishes.length * 30 + state.decorations.length * 20
+    gameState.earnCoins(migrationBonus, 'migration')
+    showToast(`Welcome to the new economy! You've been awarded ${migrationBonus} coins for your existing tank.`)
+  }
+
+  // Restore fish with hunger/health
+  const elapsedSec = state.economy
+    ? (Date.now() - new Date(state.economy.lastSaveTimestamp).getTime()) / 1000
+    : 0
+
   for (const fishSave of state.fishes) {
     addFish(fishSave.speciesId, fishSave.name)
+    const fish = fishes[fishes.length - 1]
+    const savedHunger = (fishSave as any).hunger ?? 0
+    const savedHealth = (fishSave as any).health ?? 1
+    const hungerRate = SPECIES_ECONOMY[fishSave.speciesId].hungerRate
+    fish.hunger = elapsedSec > 0
+      ? computeOfflineHunger(savedHunger, hungerRate, elapsedSec)
+      : savedHunger
+    fish.health = savedHealth
+  }
+
+  // Apply offline health drain
+  if (elapsedSec > 0) {
+    for (const fish of fishes) {
+      fish.health = tickHealth(fish.health, fish.hunger, Math.min(elapsedSec, 4 * 3600))
+    }
+    for (let i = fishes.length - 1; i >= 0; i--) {
+      if (fishes[i].health <= 0) {
+        const dead = fishes.splice(i, 1)[0]
+        scene.remove(dead.mesh)
+        gameState.totalDeaths++
+      }
+    }
   }
 
   const meshes = slotManager.deserialize(state.decorations)
@@ -467,8 +539,22 @@ function restoreState(): void {
   }
 
   remoundSand()
-
   updateHUDCounts()
+  hud.updateCoins(gameState.coins)
+
+  // Daily bonus
+  const today = new Date().toISOString().slice(0, 10)
+  const bonus = gameState.claimDailyBonus(today)
+  if (bonus > 0) {
+    showToast(`Daily bonus: +${bonus} coins! (${gameState.dailyStreak} day streak)`)
+  }
+
+  // Mercy check
+  if (gameState.checkMercy(fishes.length)) {
+    showToast("Your tank is empty. Here's enough to start over.")
+  }
+
+  persistState()
 }
 
 // Preload GLB models (fish + decorations), then restore state
@@ -588,6 +674,7 @@ function updateFishBehaviors(dt: number): void {
       mouse: mouseDist < 3.0 ? { distance: mouseDist } : null,
       homeDecor: nearestHomePos ? { distance: nearestHomeDist } : null,
       nearestFlake: nearestFlakePos ? { distance: nearestFlakeDist } : null,
+      hunger: fish.hunger,
     }
 
     fish.stateMachine.update(dt, ctx)
@@ -636,6 +723,9 @@ function updateFishBehaviors(dt: number): void {
           if (nearestFlakeDist < 0.3) {
             flakeManager.consume(nearestFlakeId)
             fish.targetFlakeId = null
+            fish.hunger = 0
+            gameState.earnCoins(FEEDING_BONUS, 'feeding')
+            hud.showCoinAnimation(FEEDING_BONUS)
           }
         } else {
           fish.targetFlakeId = null
@@ -663,6 +753,7 @@ window.addEventListener('resize', () => {
 // --- Render loop ---
 const clock = new THREE.Clock()
 let lastTimeOfDay = ''
+let lastEconomySave = 0
 
 function animate() {
   requestAnimationFrame(animate)
@@ -677,6 +768,52 @@ function animate() {
   for (const fish of fishes) {
     fish.speedMultiplier = dayNight.speedMultiplier
   }
+
+  // Economy: passive income from healthy fish
+  for (const fish of fishes) {
+    const eco = SPECIES_ECONOMY[fish.speciesId]
+    if (fish.health >= PASSIVE_INCOME_HEALTH_FLOOR) {
+      const healthScale = (fish.health - PASSIVE_INCOME_HEALTH_FLOOR) / (1.0 - PASSIVE_INCOME_HEALTH_FLOOR)
+      gameState.earnCoins(eco.coinRate * (dt / 60) * healthScale, 'passive')
+    }
+    fish.hunger = tickHunger(fish.hunger, eco.hungerRate, dt)
+    fish.health = tickHealth(fish.health, fish.hunger, dt)
+  }
+
+  // Remove dead fish
+  for (let i = fishes.length - 1; i >= 0; i--) {
+    if (fishes[i].health <= 0) {
+      const dead = fishes.splice(i, 1)[0]
+      scene.remove(dead.mesh)
+      cameraController.onFollowTargetRemoved()
+      gameState.totalDeaths++
+      showToast(`${dead.name} has died...`)
+    }
+  }
+
+  // Milestone check (throttle to once per second)
+  if (Math.floor(elapsed) !== Math.floor(elapsed - dt)) {
+    const speciesOwned = new Set(fishes.map(f => f.speciesId))
+    const milestoneAward = gameState.checkMilestones({
+      fishCount: fishes.length,
+      decorCount: slotManager.getOccupied().length,
+      speciesOwned,
+      totalDeaths: gameState.totalDeaths,
+    })
+    if (milestoneAward > 0) {
+      showToast(`Milestone unlocked! +${milestoneAward} coins`)
+      hud.showCoinAnimation(milestoneAward)
+    }
+    gameState.checkMercy(fishes.length)
+    hud.updateCoins(gameState.coins)
+  }
+
+  // Throttled save for economy ticks (every 10 seconds)
+  if (elapsed - lastEconomySave > 10) {
+    lastEconomySave = elapsed
+    persistState()
+  }
+
   updateFishBehaviors(dt)
   audioManager.updateAmbient(dt)
   updateWaterSurface(tankMeshes, dt, elapsed)
