@@ -173,6 +173,11 @@ interface Bubble {
   baseScale: number
   life: number
   maxLife: number
+  // Random drift velocities that change over time
+  driftX: number
+  driftZ: number
+  // Time until next random direction change
+  nextJitter: number
 }
 
 const MAX_BUBBLES = 50
@@ -243,6 +248,9 @@ function spawnBubble(): void {
     baseScale: size,
     life: 0,
     maxLife: 4 + Math.random() * 5,
+    driftX: (Math.random() - 0.5) * 0.6,
+    driftZ: (Math.random() - 0.5) * 0.4,
+    nextJitter: 0.3 + Math.random() * 0.8,
   })
   bubbleScene.add(mesh)
 }
@@ -268,6 +276,9 @@ export function spawnMouthBubbles(mouthPos: THREE.Vector3): void {
       baseScale: size,
       life: 0,
       maxLife: 1.5 + Math.random() * 2, // shorter lifespan
+      driftX: (Math.random() - 0.5) * 0.8,
+      driftZ: (Math.random() - 0.5) * 0.5,
+      nextJitter: 0.2 + Math.random() * 0.5,
     })
     bubbleScene.add(mesh)
   }
@@ -285,10 +296,29 @@ export function updateBubbles(time: number, dt: number, camera: THREE.Camera): v
     const b = bubbles[i]
     b.life += dt
 
-    // Rise with gentle side-to-side wobble
-    b.mesh.position.y += b.speed * dt
-    b.mesh.position.x += Math.sin(time * 2.5 + b.wobbleOffset) * 0.15 * dt
-    b.mesh.position.z += Math.cos(time * 2.0 + b.wobbleOffset) * 0.1 * dt
+    // Randomly change lateral drift direction
+    b.nextJitter -= dt
+    if (b.nextJitter <= 0) {
+      b.driftX += (Math.random() - 0.5) * 0.8
+      b.driftZ += (Math.random() - 0.5) * 0.6
+      // Dampen to prevent runaway drift
+      b.driftX *= 0.7
+      b.driftZ *= 0.7
+      b.nextJitter = 0.3 + Math.random() * 1.0
+    }
+
+    // Vary rise speed — small random fluctuations each frame
+    const speedJitter = 1.0 + (Math.random() - 0.5) * 0.3
+    b.mesh.position.y += b.speed * speedJitter * dt
+    // Lateral movement: random drift + subtle sine wobble for organic feel
+    b.mesh.position.x += (b.driftX + Math.sin(time * 1.8 + b.wobbleOffset) * 0.08) * dt
+    b.mesh.position.z += (b.driftZ + Math.cos(time * 1.4 + b.wobbleOffset) * 0.06) * dt
+
+    // Clamp X/Z to stay within tank
+    const halfW = TANK.width * 0.45
+    const halfD = TANK.depth * 0.45
+    b.mesh.position.x = Math.max(-halfW, Math.min(halfW, b.mesh.position.x))
+    b.mesh.position.z = Math.max(-halfD, Math.min(halfD, b.mesh.position.z))
 
     // Billboard — always face camera
     b.mesh.quaternion.copy(camera.quaternion)
