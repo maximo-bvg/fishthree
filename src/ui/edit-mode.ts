@@ -1,5 +1,6 @@
 import './edit-mode.css'
 import { DECORATIONS, type DecorationId, type DecorationCategory } from '../decorations/catalog'
+import { DECORATION_PRICES } from '../game/economy'
 
 const CATEGORY_ICONS: Record<DecorationCategory, string> = {
   plants: '\u{1F33F}',
@@ -39,6 +40,8 @@ export interface EditModeCallbacks {
   onSelectItem: (decorationId: DecorationId) => void
   onDone: () => void
   onRescale?: (slotIndex: number, newScale: number) => void
+  getCoins: () => number
+  onBuyDecoration: (decorationId: DecorationId) => boolean
 }
 
 export class EditModeUI {
@@ -115,20 +118,27 @@ export class EditModeUI {
 
   private renderItems(): void {
     this.itemsContainer.innerHTML = ''
+    const coins = this.callbacks.getCoins()
     for (const [id, def] of Object.entries(DECORATIONS)) {
       if (def.category !== this.activeCategory) continue
+      const price = DECORATION_PRICES[id as DecorationId]
+      const canAfford = coins >= price
       const item = document.createElement('div')
-      item.className = `edit-item${this.selectedItem === id ? ' selected' : ''}`
+      item.className = `edit-item${this.selectedItem === id ? ' selected' : ''}${canAfford ? '' : ' disabled'}`
       item.innerHTML = `
         <span class="edit-item-icon">${ITEM_ICONS[id as DecorationId] || '?'}</span>
         <span class="edit-item-name">${def.name}</span>
+        <span class="edit-item-price${canAfford ? '' : ' insufficient'}">${price}</span>
       `
-      item.addEventListener('click', () => {
-        this.selectedItem = id as DecorationId
-        this.renderItems()
-        this.callbacks.onSelectItem(id as DecorationId)
-        this.onAudioTrigger?.('decor-placed')
-      })
+      if (canAfford) {
+        item.addEventListener('click', () => {
+          if (!this.callbacks.onBuyDecoration(id as DecorationId)) return
+          this.selectedItem = id as DecorationId
+          this.renderItems()
+          this.callbacks.onSelectItem(id as DecorationId)
+          this.onAudioTrigger?.('decor-placed')
+        })
+      }
       this.itemsContainer.appendChild(item)
     }
   }

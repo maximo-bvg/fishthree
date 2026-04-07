@@ -123,3 +123,18 @@
 .edit-scale-hint.visible {
   opacity: 1;
 }
+
+.edit-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.edit-item-price {
+  font-size: 9px;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.edit-item-price.insufficient {
+  color: #ff4444;
+}
