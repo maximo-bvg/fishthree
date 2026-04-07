@@ -237,9 +237,8 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   const floorMat = new THREE.MeshStandardMaterial({
     map: sandTex,
     color: 0xddd8cc,
-    emissive: 0x1a1610,
-    emissiveIntensity: 0.15,
-    roughness: 0.95,
+    roughness: 1.0,
+    metalness: 0,
     side: THREE.DoubleSide,
   })
 
