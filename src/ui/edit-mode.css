@@ -102,3 +102,24 @@
   background: rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
+
+.edit-scale-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 25, 50, 0.85);
+  border: 1px solid rgba(100, 180, 255, 0.4);
+  border-radius: 8px;
+  padding: 6px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 10;
+}
+
+.edit-scale-hint.visible {
+  opacity: 1;
+}

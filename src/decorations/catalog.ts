@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { lowPolyMaterial, jitterVertices } from '../utils/geometry'
+import { cloneDecorationModel } from './model-loader'
 
 export type DecorationCategory = 'plants' | 'rocks' | 'accessories' | 'fun'
 export type DecorationSize = 'small' | 'medium' | 'large'
@@ -8,6 +9,9 @@ export interface DecorationDefinition {
   name: string
   category: DecorationCategory
   size: DecorationSize
+  modelPath?: string
+  modelSize?: number
+  modelRotation?: [number, number, number]
   createMesh: () => THREE.Group
 }
 
@@ -17,6 +21,24 @@ export type DecorationId =
   | 'bubbler' | 'tank_light'
   | 'treasure_chest' | 'diver' | 'sunken_ship'
   | 'brain_coral' | 'kelp' | 'coral_cluster' | 'volcano_bubbler' | 'treasure_map'
+  | 'barrel' | 'cannon' | 'bottle' | 'pirate_flag'
+  | 'rock_pile' | 'stone_ring' | 'rock_cave' | 'bush'
+
+/** Try loading a GLB model; fall back to procedural generation */
+function modelOrFallback(
+  modelPath: string | undefined,
+  modelSize: number | undefined,
+  modelRotation: [number, number, number] | undefined,
+  fallback: () => THREE.Group,
+): THREE.Group {
+  if (modelPath && modelSize) {
+    const model = cloneDecorationModel(modelPath, modelSize, modelRotation)
+    if (model) return model
+  }
+  return fallback()
+}
+
+// --- Procedural mesh generators (kept as fallbacks) ---
 
 function createSeaweed(): THREE.Group {
   const group = new THREE.Group()
@@ -30,6 +52,7 @@ function createSeaweed(): THREE.Group {
     mesh.castShadow = true
     group.add(mesh)
   }
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -45,6 +68,7 @@ function createCoralFan(): THREE.Group {
   const stem = new THREE.Mesh(stemGeo, lowPolyMaterial(0xcc5566))
   stem.position.y = -0.5
   group.add(stem)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -65,6 +89,7 @@ function createAnemone(): THREE.Group {
   const baseGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.1, 6)
   const base = new THREE.Mesh(baseGeo, lowPolyMaterial(0xcc3388))
   group.add(base)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -77,6 +102,7 @@ function createBoulder(): THREE.Group {
   mesh.castShadow = true
   mesh.receiveShadow = true
   group.add(mesh)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -99,6 +125,7 @@ function createRockArch(): THREE.Group {
   bridge.position.y = 1.05
   bridge.castShadow = true
   group.add(bridge)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -116,6 +143,7 @@ function createDriftwood(): THREE.Group {
   branch.rotation.z = -0.6
   branch.castShadow = true
   group.add(branch)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -129,6 +157,7 @@ function createBubbler(): THREE.Group {
   const nozzle = new THREE.Mesh(nozzleGeo, lowPolyMaterial(0x666666))
   nozzle.position.y = 0.12
   group.add(nozzle)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -147,6 +176,7 @@ function createTankLight(): THREE.Group {
   lens.rotation.x = -Math.PI / 2
   lens.position.y = -0.07
   group.add(lens)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -170,6 +200,7 @@ function createTreasureChest(): THREE.Group {
     gold.position.set((i - 1) * 0.12, 0.15, 0)
     group.add(gold)
   }
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -188,6 +219,7 @@ function createDiver(): THREE.Group {
   const visor = new THREE.Mesh(visorGeo, new THREE.MeshStandardMaterial({ color: 0x4488ff }))
   visor.position.set(0, 0.3, 0.12)
   group.add(visor)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -215,6 +247,7 @@ function createSunkenShip(): THREE.Group {
   }))
   sail.position.set(-0.2, 0.7, 0.05)
   group.add(sail)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -226,6 +259,7 @@ function createBrainCoral(): THREE.Group {
   mesh.castShadow = true
   mesh.receiveShadow = true
   group.add(mesh)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -241,6 +275,7 @@ function createKelp(): THREE.Group {
     mesh.castShadow = true
     group.add(mesh)
   }
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -256,6 +291,7 @@ function createCoralCluster(): THREE.Group {
     mesh.castShadow = true
     group.add(mesh)
   }
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -271,6 +307,7 @@ function createVolcanoBubbler(): THREE.Group {
   const crater = new THREE.Mesh(craterGeo, lowPolyMaterial(0x332211))
   crater.position.y = 0.8
   group.add(crater)
+  group.scale.setScalar(2.5)
   return group
 }
 
@@ -287,24 +324,273 @@ function createTreasureMap(): THREE.Group {
   mesh.position.y = 0.02
   mesh.castShadow = true
   group.add(mesh)
+  group.scale.setScalar(2.5)
   return group
 }
 
+// Simple procedural fallbacks for new model-based decorations
+
+function createBarrelFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8)
+  const mesh = new THREE.Mesh(geo, lowPolyMaterial(0x8b5e3c))
+  mesh.castShadow = true
+  group.add(mesh)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createCannonFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const barrel = new THREE.CylinderGeometry(0.08, 0.1, 0.6, 6)
+  const mesh = new THREE.Mesh(barrel, lowPolyMaterial(0x333333))
+  mesh.rotation.z = Math.PI / 2
+  mesh.position.y = 0.15
+  mesh.castShadow = true
+  group.add(mesh)
+  const baseGeo = new THREE.BoxGeometry(0.3, 0.1, 0.25)
+  const base = new THREE.Mesh(baseGeo, lowPolyMaterial(0x6b4226))
+  base.castShadow = true
+  group.add(base)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createBottleFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const bodyGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.2, 6)
+  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({
+    color: 0x44aa66,
+    transparent: true,
+    opacity: 0.6,
+  }))
+  body.rotation.z = 0.3
+  body.castShadow = true
+  group.add(body)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createPirateFlagFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4)
+  const pole = new THREE.Mesh(poleGeo, lowPolyMaterial(0x8b6914))
+  pole.position.y = 0.4
+  pole.castShadow = true
+  group.add(pole)
+  const flagGeo = new THREE.PlaneGeometry(0.3, 0.2)
+  const flag = new THREE.Mesh(flagGeo, new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    side: THREE.DoubleSide,
+  }))
+  flag.position.set(0.15, 0.7, 0)
+  group.add(flag)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createRockPileFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const offsets = [
+    { x: 0, y: 0.15, z: 0, r: 0.2 },
+    { x: 0.15, y: 0.1, z: 0.1, r: 0.15 },
+    { x: -0.12, y: 0.08, z: -0.08, r: 0.12 },
+  ]
+  for (const o of offsets) {
+    const geo = new THREE.IcosahedronGeometry(o.r, 1)
+    jitterVertices(geo, 0.03)
+    const mesh = new THREE.Mesh(geo, lowPolyMaterial(0x777766))
+    mesh.position.set(o.x, o.y, o.z)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    group.add(mesh)
+  }
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createStoneRingFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const count = 6
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2
+    const geo = new THREE.IcosahedronGeometry(0.08, 0)
+    jitterVertices(geo, 0.02)
+    const mesh = new THREE.Mesh(geo, lowPolyMaterial(0x999988))
+    mesh.position.set(Math.cos(angle) * 0.2, 0.05, Math.sin(angle) * 0.2)
+    mesh.castShadow = true
+    group.add(mesh)
+  }
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createRockCaveFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const geo = new THREE.BoxGeometry(0.8, 0.6, 0.6)
+  jitterVertices(geo, 0.06)
+  const mesh = new THREE.Mesh(geo, lowPolyMaterial(0x887766))
+  mesh.position.y = 0.3
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  group.add(mesh)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+function createBushFallback(): THREE.Group {
+  const group = new THREE.Group()
+  const geo = new THREE.IcosahedronGeometry(0.35, 1)
+  geo.scale(1.0, 0.7, 1.0)
+  jitterVertices(geo, 0.05)
+  const mesh = new THREE.Mesh(geo, lowPolyMaterial(0x337744))
+  mesh.position.y = 0.25
+  mesh.castShadow = true
+  group.add(mesh)
+  group.scale.setScalar(2.5)
+  return group
+}
+
+// --- Decoration registry ---
+
+const MODEL_BASE = '/models/decorations/'
+
 export const DECORATIONS: Record<DecorationId, DecorationDefinition> = {
+  // Plants
   seaweed:        { name: 'Seaweed',        category: 'plants',      size: 'medium', createMesh: createSeaweed },
   coral_fan:      { name: 'Coral Fan',      category: 'plants',      size: 'medium', createMesh: createCoralFan },
   anemone:        { name: 'Anemone',        category: 'plants',      size: 'small',  createMesh: createAnemone },
-  boulder:        { name: 'Boulder',        category: 'rocks',       size: 'medium', createMesh: createBoulder },
-  rock_arch:      { name: 'Rock Arch',      category: 'rocks',       size: 'large',  createMesh: createRockArch },
-  driftwood:      { name: 'Driftwood',      category: 'rocks',       size: 'medium', createMesh: createDriftwood },
-  bubbler:        { name: 'Bubbler',        category: 'accessories', size: 'small',  createMesh: createBubbler },
-  tank_light:     { name: 'Tank Light',     category: 'accessories', size: 'medium', createMesh: createTankLight },
-  treasure_chest: { name: 'Treasure Chest', category: 'fun',         size: 'medium', createMesh: createTreasureChest },
-  diver:          { name: 'Diver',          category: 'fun',         size: 'small',  createMesh: createDiver },
-  sunken_ship:    { name: 'Sunken Ship',    category: 'fun',         size: 'large',  createMesh: createSunkenShip },
-  brain_coral:      { name: 'Brain Coral',      category: 'plants',      size: 'medium', createMesh: createBrainCoral },
+  brain_coral: {
+    name: 'Brain Coral',
+    category: 'plants',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'mushroom_coral.glb',
+    modelSize: 2.0,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createBrainCoral) },
+  },
   kelp:             { name: 'Kelp',             category: 'plants',      size: 'medium', createMesh: createKelp },
   coral_cluster:    { name: 'Coral Cluster',    category: 'rocks',       size: 'medium', createMesh: createCoralCluster },
+  bush: {
+    name: 'Sea Bush',
+    category: 'plants',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'bush.glb',
+    modelSize: 2.2,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createBushFallback) },
+  },
+
+  // Rocks
+  boulder: {
+    name: 'Boulder',
+    category: 'rocks',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'rocks_a.glb',
+    modelSize: 2.5,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createBoulder) },
+  },
+  rock_arch: {
+    name: 'Rock Arch',
+    category: 'rocks',
+    size: 'large',
+    modelPath: MODEL_BASE + 'rock_cave.glb',
+    modelSize: 3.5,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createRockArch) },
+  },
+  driftwood: {
+    name: 'Driftwood',
+    category: 'rocks',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'stump.glb',
+    modelSize: 2.0,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createDriftwood) },
+  },
+  rock_pile: {
+    name: 'Rock Pile',
+    category: 'rocks',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'rocks_b.glb',
+    modelSize: 2.5,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createRockPileFallback) },
+  },
+  stone_ring: {
+    name: 'Stone Ring',
+    category: 'rocks',
+    size: 'small',
+    modelPath: MODEL_BASE + 'stone_ring.glb',
+    modelSize: 1.5,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createStoneRingFallback) },
+  },
+  rock_cave: {
+    name: 'Rock Cave',
+    category: 'rocks',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'rock_tall.glb',
+    modelSize: 2.8,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createRockCaveFallback) },
+  },
+
+  // Accessories
+  bubbler:        { name: 'Bubbler',        category: 'accessories', size: 'small',  createMesh: createBubbler },
+  tank_light:     { name: 'Tank Light',     category: 'accessories', size: 'medium', createMesh: createTankLight },
   volcano_bubbler:  { name: 'Volcano Bubbler',  category: 'accessories', size: 'medium', createMesh: createVolcanoBubbler },
+
+  // Fun
+  treasure_chest: {
+    name: 'Treasure Chest',
+    category: 'fun',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'chest.glb',
+    modelSize: 2.0,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createTreasureChest) },
+  },
+  diver:          { name: 'Diver',          category: 'fun',         size: 'small',  createMesh: createDiver },
+  sunken_ship: {
+    name: 'Sunken Ship',
+    category: 'fun',
+    size: 'large',
+    modelPath: MODEL_BASE + 'ship_wreck.glb',
+    modelSize: 5.0,
+    modelRotation: [0, Math.PI / 6, 0.15],
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createSunkenShip) },
+  },
   treasure_map:     { name: 'Treasure Map',     category: 'fun',         size: 'small',  createMesh: createTreasureMap },
+  barrel: {
+    name: 'Barrel',
+    category: 'fun',
+    size: 'small',
+    modelPath: MODEL_BASE + 'barrel.glb',
+    modelSize: 1.5,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createBarrelFallback) },
+  },
+  cannon: {
+    name: 'Cannon',
+    category: 'fun',
+    size: 'medium',
+    modelPath: MODEL_BASE + 'cannon.glb',
+    modelSize: 2.2,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createCannonFallback) },
+  },
+  bottle: {
+    name: 'Bottle',
+    category: 'fun',
+    size: 'small',
+    modelPath: MODEL_BASE + 'bottle.glb',
+    modelSize: 1.2,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createBottleFallback) },
+  },
+  pirate_flag: {
+    name: 'Pirate Flag',
+    category: 'fun',
+    size: 'small',
+    modelPath: MODEL_BASE + 'pirate_flag.glb',
+    modelSize: 2.0,
+    createMesh() { return modelOrFallback(this.modelPath, this.modelSize, this.modelRotation, createPirateFlagFallback) },
+  },
+}
+
+/** Collect all model paths for preloading */
+export function getDecorationModelPaths(): string[] {
+  return Object.values(DECORATIONS)
+    .map(d => d.modelPath)
+    .filter((p): p is string => !!p)
 }

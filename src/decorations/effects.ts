@@ -49,6 +49,9 @@ export class DecorationEffects {
       case 'kelp':
         this.swayingMeshes.push({ mesh, speed: 1.5, amplitude: 0.15 })
         break
+      case 'bush':
+        this.swayingMeshes.push({ mesh, speed: 0.6, amplitude: 0.04 })
+        break
       case 'volcano_bubbler':
         this.addBubbler(mesh.position.clone().add(new THREE.Vector3(0, 0.8, 0)))
         break

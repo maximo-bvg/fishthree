@@ -11,6 +11,7 @@ export interface FishSave {
 export interface DecorationSave {
   slotIndex: number
   decorationId: DecorationId
+  scale?: number
 }
 
 export interface TankSettings {

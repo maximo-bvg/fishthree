@@ -25,8 +25,9 @@ import {
 } from './fish/behaviors'
 import { FlakeManager } from './feeding/flakes'
 import { SlotManager, SLOT_DEFINITIONS } from './decorations/slots'
-import { type DecorationId } from './decorations/catalog'
+import { type DecorationId, getDecorationModelPaths } from './decorations/catalog'
 import { DecorationEffects } from './decorations/effects'
+import { preloadDecorationModels } from './decorations/model-loader'
 import { HUD } from './ui/hud'
 import { EditModeUI } from './ui/edit-mode'
 import { showFishListPanel, showAddFishPanel, showSettingsPanel, type PanelCallbacks } from './ui/panels'
@@ -209,6 +210,41 @@ window.addEventListener('click', (e) => {
     persistState()
   }
 })
+
+// --- Scroll-wheel resize for decorations in edit mode ---
+window.addEventListener('wheel', (e) => {
+  if (!isEditMode) return
+
+  raycaster.setFromCamera(
+    new THREE.Vector2(
+      (e.clientX / window.innerWidth) * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1,
+    ),
+    camera,
+  )
+
+  const hits = raycaster.intersectObjects(slotIndicators)
+  if (hits.length > 0) {
+    const slotIndex = slotIndicators.indexOf(hits[0].object as THREE.Mesh)
+    if (slotIndex === -1) return
+    const slot = slotManager.getSlot(slotIndex)
+    if (!slot.decorationId) return
+
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    const newScale = Math.max(0.3, Math.min(3.0, slot.scale + delta))
+    const [oldMesh, newMesh] = slotManager.rescale(slotIndex, newScale)
+    if (oldMesh && newMesh) {
+      effects.unregister(oldMesh)
+      scene.remove(oldMesh)
+      scene.add(newMesh)
+      effects.register(slot.decorationId, newMesh, SLOT_DEFINITIONS[slotIndex].zone)
+      remoundSand()
+      persistState()
+    }
+    editModeUI?.showScaleHint(newScale)
+  }
+}, { passive: false })
 
 // --- Fish click + feed handler ---
 const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TANK.height / 2)
@@ -435,8 +471,11 @@ function restoreState(): void {
   updateHUDCounts()
 }
 
-// Preload GLB models, then restore state (spawns fish)
-preloadModels(SPECIES).then(() => {
+// Preload GLB models (fish + decorations), then restore state
+Promise.all([
+  preloadModels(SPECIES),
+  preloadDecorationModels(getDecorationModelPaths()),
+]).then(() => {
   restoreState()
 })
 
@@ -445,21 +484,22 @@ function getDecorationPositions(): THREE.Vector3[] {
   return slotManager.getOccupied().map(({ index }) => SLOT_DEFINITIONS[index].position)
 }
 
+const ROCK_IDS: Set<DecorationId> = new Set([
+  'boulder', 'rock_arch', 'driftwood', 'rock_pile', 'stone_ring', 'rock_cave',
+])
+const PLANT_IDS: Set<DecorationId> = new Set([
+  'seaweed', 'coral_fan', 'anemone', 'bush',
+])
+
 function getRockPositions(): THREE.Vector3[] {
   return slotManager.getOccupied()
-    .filter(({ state }) => {
-      const id = state.decorationId
-      return id === 'boulder' || id === 'rock_arch' || id === 'driftwood'
-    })
+    .filter(({ state }) => state.decorationId !== null && ROCK_IDS.has(state.decorationId))
     .map(({ index }) => SLOT_DEFINITIONS[index].position)
 }
 
 function getPlantPositions(): THREE.Vector3[] {
   return slotManager.getOccupied()
-    .filter(({ state }) => {
-      const id = state.decorationId
-      return id === 'seaweed' || id === 'coral_fan' || id === 'anemone'
-    })
+    .filter(({ state }) => state.decorationId !== null && PLANT_IDS.has(state.decorationId))
     .map(({ index }) => SLOT_DEFINITIONS[index].position)
 }
 

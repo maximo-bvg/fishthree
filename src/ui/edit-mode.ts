@@ -25,20 +25,31 @@ const ITEM_ICONS: Partial<Record<DecorationId, string>> = {
   coral_cluster: '\u{1FAB8}',
   volcano_bubbler: '\u{1F30B}',
   treasure_map: '\u{1F5FA}',
+  barrel: '\u{1F6E2}',
+  cannon: '\u{1F4A3}',
+  bottle: '\u{1F37E}',
+  pirate_flag: '\u{1F3F4}',
+  rock_pile: '\u{1FAA8}',
+  stone_ring: '\u{2B55}',
+  rock_cave: '\u{1F573}',
+  bush: '\u{1F33F}',
 }
 
 export interface EditModeCallbacks {
   onSelectItem: (decorationId: DecorationId) => void
   onDone: () => void
+  onRescale?: (slotIndex: number, newScale: number) => void
 }
 
 export class EditModeUI {
   private container: HTMLDivElement
   private dimOverlay: HTMLDivElement
+  private scaleHint: HTMLDivElement
   private itemsContainer: HTMLDivElement
   private activeCategory: DecorationCategory = 'plants'
   private selectedItem: DecorationId | null = null
   private callbacks: EditModeCallbacks
+  private scaleHintTimer: ReturnType<typeof setTimeout> | null = null
   onAudioTrigger: ((sound: string) => void) | null = null
 
   constructor(parent: HTMLElement, callbacks: EditModeCallbacks) {
@@ -46,6 +57,9 @@ export class EditModeUI {
 
     this.dimOverlay = document.createElement('div')
     this.dimOverlay.className = 'edit-dim-overlay'
+
+    this.scaleHint = document.createElement('div')
+    this.scaleHint.className = 'edit-scale-hint'
 
     this.container = document.createElement('div')
     this.container.className = 'edit-mode-bottom'
@@ -86,7 +100,17 @@ export class EditModeUI {
     this.renderItems()
 
     parent.appendChild(this.dimOverlay)
+    parent.appendChild(this.scaleHint)
     parent.appendChild(this.container)
+  }
+
+  showScaleHint(scale: number): void {
+    this.scaleHint.textContent = `Scale: ${Math.round(scale * 100)}% — scroll to resize`
+    this.scaleHint.classList.add('visible')
+    if (this.scaleHintTimer) clearTimeout(this.scaleHintTimer)
+    this.scaleHintTimer = setTimeout(() => {
+      this.scaleHint.classList.remove('visible')
+    }, 1500)
   }
 
   private renderItems(): void {
@@ -114,7 +138,9 @@ export class EditModeUI {
   }
 
   destroy(): void {
+    if (this.scaleHintTimer) clearTimeout(this.scaleHintTimer)
     this.dimOverlay.remove()
+    this.scaleHint.remove()
     this.container.remove()
   }
 }
