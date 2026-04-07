@@ -613,13 +613,13 @@ const PLANT_IDS: Set<DecorationId> = new Set([
 
 function getRockPositions(): THREE.Vector3[] {
   return cachedObstacles
-    .filter(o => o.decorationId && ROCK_IDS.has(o.decorationId))
+    .filter(o => o.decorationId && ROCK_IDS.has(o.decorationId as DecorationId))
     .map(o => o.position)
 }
 
 function getPlantPositions(): THREE.Vector3[] {
   return cachedObstacles
-    .filter(o => o.decorationId && PLANT_IDS.has(o.decorationId))
+    .filter(o => o.decorationId && PLANT_IDS.has(o.decorationId as DecorationId))
     .map(o => o.position)
 }
 

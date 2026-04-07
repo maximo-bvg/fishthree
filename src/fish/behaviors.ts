@@ -178,7 +178,7 @@ export function updateSurfaceSwim(fish: Fish, school: Fish[], dt: number): void 
   if (school.length > 0) {
     const agents = school.map(f => ({ position: f.position, velocity: f.velocity }))
     const self = { position: fish.position, velocity: fish.velocity }
-    const force = computeBoids(self, agents, { ...BOIDS_DEFAULTS, separationDist: 2.0 })
+    const force = computeBoids(self, agents, { ...BOIDS_DEFAULTS, separationRadius: 2.0 })
     fish.targetVelocity.copy(fish.velocity).add(force)
 
     if (fish.targetVelocity.lengthSq() < 0.1) {

@@ -22,6 +22,7 @@ describe('FishStateMachine', () => {
       school: [],
       mouse: null,
       homeDecor: null,
+      nearestFlake: null,
     })
     expect(sm.current).toBe('flee')
   })
@@ -49,6 +50,7 @@ describe('FishStateMachine', () => {
       school: [],
       mouse: null,
       homeDecor: null,
+      nearestFlake: null,
     })
     expect(sm.current).toBe('hide')
   })
@@ -62,6 +64,7 @@ describe('FishStateMachine', () => {
       school: [],
       mouse: { distance: 1.0 },
       homeDecor: null,
+      nearestFlake: null,
     })
     expect(sm.current).toBe('react')
   })
