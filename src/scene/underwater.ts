@@ -288,7 +288,6 @@ export function updateBubbles(time: number, dt: number, camera: THREE.Camera): v
 // --- Caustic light overlay on floor and back wall ---
 
 let causticFloorMesh: THREE.Mesh
-let causticBackMesh: THREE.Mesh
 
 const causticShader = {
   uniforms: {
@@ -305,19 +304,35 @@ const causticShader = {
     uniform float uTime;
     varying vec2 vUv;
 
-    float causticLayer(vec2 uv, float t) {
-      vec2 p = uv * 5.0;
-      float a = sin(p.x * 2.1 + t * 0.7) * cos(p.y * 1.8 - t * 0.5);
-      float b = cos(p.x * 1.7 - t * 0.6) * sin(p.y * 2.3 + t * 0.8);
-      float c = sin((p.x + p.y) * 1.5 + t * 0.4);
-      float v = (a + b + c) / 3.0;
-      return pow(max(0.0, v), 1.5);
+    // Hash for pseudo-random Voronoi cell points
+    vec2 hash(vec2 p) {
+      p = vec2(dot(p, vec2(127.1, 311.7)),
+               dot(p, vec2(269.5, 183.3)));
+      return fract(sin(p) * 43758.5453);
+    }
+
+    float voronoi(vec2 uv, float t) {
+      vec2 i = floor(uv);
+      vec2 f = fract(uv);
+      float minDist = 1.0;
+      for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+          vec2 neighbor = vec2(float(x), float(y));
+          vec2 point = hash(i + neighbor);
+          point = 0.5 + 0.4 * sin(t * 0.5 + 6.2831 * point);
+          float d = length(neighbor + point - f);
+          minDist = min(minDist, d);
+        }
+      }
+      return minDist;
     }
 
     void main() {
-      float c1 = causticLayer(vUv, uTime);
-      float c2 = causticLayer(vUv + vec2(0.3, 0.7), uTime * 1.3 + 5.0);
-      float caustic = (c1 + c2) * 0.5;
+      // Min-of-two-layers creates interconnected caustic network
+      float c1 = voronoi(vUv * 5.0, uTime);
+      float c2 = voronoi(vUv * 5.0 * 1.6 + vec2(0.5, 0.3), uTime * 1.3);
+      float caustic = min(c1, c2);
+      caustic = pow(caustic, 2.5) * 2.5;
 
       vec3 color = vec3(0.4, 0.8, 1.0) * caustic;
       float alpha = caustic * 0.8;
@@ -341,26 +356,11 @@ export function createCausticOverlays(scene: THREE.Scene): void {
   causticFloorMesh.position.y = -TANK.height / 2 + 0.02
   scene.add(causticFloorMesh)
 
-  // Back wall caustics
-  const backGeo = new THREE.PlaneGeometry(TANK.width, TANK.height)
-  const backMat = new THREE.ShaderMaterial({
-    ...causticShader,
-    uniforms: { uTime: { value: 0 } },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  })
-  causticBackMesh = new THREE.Mesh(backGeo, backMat)
-  causticBackMesh.position.set(0, 0, -TANK.depth / 2 + 0.02)
-  scene.add(causticBackMesh)
 }
 
 export function updateCausticOverlays(time: number): void {
   if (causticFloorMesh) {
     ;(causticFloorMesh.material as THREE.ShaderMaterial).uniforms.uTime.value = time
-  }
-  if (causticBackMesh) {
-    ;(causticBackMesh.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   }
 }
 
@@ -404,6 +404,32 @@ export function createUnderwaterPass(): ShaderPass {
         return -viewZ;
       }
 
+      // Smooth value noise — no grid artifacts
+      float hash1(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float vnoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f); // smoothstep interpolation
+        float a = hash1(i);
+        float b = hash1(i + vec2(1.0, 0.0));
+        float c = hash1(i + vec2(0.0, 1.0));
+        float d = hash1(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+
+      // Fractal Brownian motion — layered noise
+      float fbm(vec2 p, float t) {
+        float v = 0.0;
+        v += vnoise(p * 3.0 + t * vec2(0.3, 0.2)) * 0.5;
+        v += vnoise(p * 6.5 + t * vec2(-0.2, 0.35)) * 0.25;
+        v += vnoise(p * 13.0 + t * vec2(0.15, -0.25)) * 0.125;
+        v += vnoise(p * 26.0 + t * vec2(-0.1, 0.15)) * 0.0625;
+        return v;
+      }
+
       void main() {
         vec2 uv = vUv;
 
@@ -411,12 +437,12 @@ export function createUnderwaterPass(): ShaderPass {
         float linearDepth = getLinearDepth(uv);
         float waterDist = max(0.0, linearDepth - uMinDepth);
 
-        // Wave distortion — depth-modulated (near glass = less distortion)
+        // Noise-based wave distortion — no grid/diamond artifacts
         float distMod = 0.3 + 0.7 * smoothstep(0.0, 4.0, waterDist);
-        uv.x += sin(vUv.y * 8.0 + uTime * 1.2) * 0.003 * distMod;
-        uv.x += sin(vUv.y * 17.0 - uTime * 0.7) * 0.0018 * distMod;
-        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0025 * distMod;
-        uv.y += cos(vUv.x * 20.0 - uTime * 1.1) * 0.0012 * distMod;
+        float dx = fbm(vUv * 4.0, uTime * 0.8) - 0.5;
+        float dy = fbm(vUv * 4.0 + vec2(5.2, 1.3), uTime * 0.7) - 0.5;
+        uv.x += dx * 0.006 * distMod;
+        uv.y += dy * 0.005 * distMod;
 
         // Re-read depth at distorted coordinates
         linearDepth = getLinearDepth(uv);
