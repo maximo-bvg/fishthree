@@ -243,8 +243,13 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   })
 
   // Subdivided plane for vertex displacement
+  // Extend sand slightly past tank walls so edges tuck behind glass/frame
+  const sandOverlap = 0.3
+  const sandW = TANK.width + sandOverlap * 2
+  const sandD = TANK.depth + sandOverlap * 2
+
   const floorGeo = new THREE.PlaneGeometry(
-    TANK.width, TANK.depth,
+    sandW, sandD,
     TANK.sand.segmentsX, TANK.sand.segmentsZ,
   )
   const floorPos = floorGeo.attributes.position as THREE.BufferAttribute
@@ -256,7 +261,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   for (let i = 0; i < floorPos.count; i++) {
     const lx = floorPos.getX(i)
     const ly = floorPos.getY(i)
-    // Normalize to 0-1 range for noise input
+    // Normalize to 0-1 range for noise input (based on tank interior, not extended size)
     const u = (lx + TANK.width / 2) / TANK.width
     const v = (ly + TANK.depth / 2) / TANK.depth
     // Large-scale undulation
@@ -339,7 +344,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     const idx = TANK.sand.segmentsZ * colCount + col
     const lx = floorPos.getX(idx)
     const lz = floorPos.getZ(idx)
-    frontEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: TANK.depth / 2 })
+    frontEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: sandD / 2 })
   }
 
   // Left edge: all rows, column 0
@@ -348,7 +353,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     const idx = row * colCount + 0
     const ly = floorPos.getY(idx)
     const lz = floorPos.getZ(idx)
-    leftEdge.push({ wx: -TANK.width / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
+    leftEdge.push({ wx: -sandW / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
   }
 
   // Right edge: all rows, last column (segmentsX)
@@ -357,7 +362,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     const idx = row * colCount + TANK.sand.segmentsX
     const ly = floorPos.getY(idx)
     const lz = floorPos.getZ(idx)
-    rightEdge.push({ wx: TANK.width / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
+    rightEdge.push({ wx: sandW / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
   }
 
   // Back edge: first row (row = 0), all columns
@@ -366,7 +371,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     const idx = col
     const lx = floorPos.getX(idx)
     const lz = floorPos.getZ(idx)
-    backEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: -TANK.depth / 2 })
+    backEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: -sandD / 2 })
   }
 
   const sandPanels: THREE.Mesh[] = []
