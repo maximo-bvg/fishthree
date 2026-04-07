@@ -464,8 +464,8 @@ export function createUnderwaterPass(): ShaderPass {
         color.r = mix(color.r, texture2D(tDiffuse, uv + caDir * caAmount).r, 0.5);
         color.b = mix(color.b, texture2D(tDiffuse, uv - caDir * caAmount).b, 0.5);
 
-        // Beer-Lambert per-channel absorption — red absorbed ~17x faster than blue
-        vec3 absorption = vec3(0.35, 0.07, 0.02);
+        // Beer-Lambert per-channel absorption — subtle for small tank
+        vec3 absorption = vec3(0.15, 0.03, 0.008);
         vec3 fogColor = uWaterTint;
         vec3 transmittance = exp(-absorption * waterDist);
         color.rgb = color.rgb * transmittance + fogColor * (1.0 - transmittance);
@@ -474,27 +474,27 @@ export function createUnderwaterPass(): ShaderPass {
         float n1 = sin(vUv.x * 8.3 + vUv.y * 6.1 + uTime * 0.07) * 0.5 + 0.5;
         float n2 = sin(vUv.x * 14.7 - vUv.y * 11.3 + uTime * 0.13) * 0.5 + 0.5;
         float n3 = cos(vUv.x * 5.9 - vUv.y * 8.7 + uTime * 0.19) * 0.5 + 0.5;
-        float turbidity = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.025;
+        float turbidity = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.015;
         float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));
         color.rgb = mix(color.rgb, fogColor, turbidity * (1.0 - brightness * 0.5));
 
         // Black point lift — scattered light fills shadows underwater
-        vec3 scatterLight = vec3(0.025, 0.055, 0.075);
-        color.rgb = mix(scatterLight, color.rgb, 0.92);
+        vec3 scatterLight = vec3(0.03, 0.06, 0.08);
+        color.rgb = mix(scatterLight, color.rgb, 0.96);
 
-        // Depth-dependent desaturation — warm colours vanish with distance
+        // Depth-dependent desaturation — warm colours fade with distance
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        vec3 coolMono = vec3(lum) * vec3(0.55, 0.82, 1.0);
-        float desat = (1.0 - transmittance.r) * 0.3;
+        vec3 coolMono = vec3(lum) * vec3(0.6, 0.85, 1.0);
+        float desat = (1.0 - transmittance.r) * 0.2;
         color.rgb = mix(color.rgb, coolMono, desat);
 
-        // Vertical depth gradient — bottom is darker with more fog
+        // Vertical depth gradient — bottom slightly darker
         float vertFade = smoothstep(0.0, 0.75, vUv.y);
-        float bottomFog = (1.0 - vertFade) * 0.1;
+        float bottomFog = (1.0 - vertFade) * 0.06;
         color.rgb = mix(color.rgb, fogColor * 0.4, bottomFog * (1.0 - brightness * 0.5));
 
         // Subtle vignette — glass edge darkening
-        float vignette = 1.0 - edgeDist * 0.25;
+        float vignette = 1.0 - edgeDist * 0.15;
         color.rgb *= vignette;
 
         gl_FragColor = color;
