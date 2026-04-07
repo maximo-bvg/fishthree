@@ -146,34 +146,84 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   frontGlass.position.set(0, 0, TANK.depth / 2)
   scene.add(frontGlass)
 
-  // Floor — procedural sand texture
-  const sandSize = 256
+  // Floor — procedural sand texture with variation
+  const sandSize = 512
   const sandCanvas = document.createElement('canvas')
   sandCanvas.width = sandSize
   sandCanvas.height = sandSize
   const sandCtx = sandCanvas.getContext('2d')!
   const sandData = sandCtx.createImageData(sandSize, sandSize)
   const sd = sandData.data
-  for (let i = 0; i < sd.length; i += 4) {
-    const grain = Math.random() * 40 - 20
-    const coarse = Math.sin((i / 4) * 0.07) * 10 + Math.cos((i / 4) * 0.13) * 8
-    sd[i] = Math.min(255, Math.max(0, 215 + grain + coarse))
-    sd[i + 1] = Math.min(255, Math.max(0, 190 + grain + coarse))
-    sd[i + 2] = Math.min(255, Math.max(0, 135 + (grain + coarse) * 0.6))
-    sd[i + 3] = 255
+
+  // Simple 2D hash for repeatable noise
+  const hash2d = (x: number, y: number) => {
+    let h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+    return h - Math.floor(h)
+  }
+  // Value noise with smooth interpolation
+  const vnoise = (x: number, y: number) => {
+    const ix = Math.floor(x), iy = Math.floor(y)
+    const fx = x - ix, fy = y - iy
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy)
+    const a = hash2d(ix, iy), b = hash2d(ix + 1, iy)
+    const c = hash2d(ix, iy + 1), d = hash2d(ix + 1, iy + 1)
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy
+  }
+  // FBM — layered noise for organic variation
+  const fbm = (x: number, y: number) => {
+    let v = 0, amp = 0.5, freq = 1
+    for (let o = 0; o < 5; o++) {
+      v += vnoise(x * freq, y * freq) * amp
+      amp *= 0.5; freq *= 2.1
+    }
+    return v
+  }
+
+  for (let py = 0; py < sandSize; py++) {
+    for (let px = 0; px < sandSize; px++) {
+      const i = (py * sandSize + px) * 4
+      const u = px / sandSize, v = py / sandSize
+
+      // Large-scale dunes / patches
+      const dune = fbm(u * 8, v * 8) * 0.6
+      // Medium ripples
+      const ripple = fbm(u * 20 + 3.7, v * 20 + 1.2) * 0.25
+      // Fine grain
+      const grain = (Math.random() - 0.5) * 0.12
+
+      const val = 0.45 + dune + ripple + grain
+
+      // Warm sand palette — deeper contrast between troughs and crests
+      const r = Math.min(255, Math.max(0, val * 220))
+      const g = Math.min(255, Math.max(0, val * 190))
+      const b = Math.min(255, Math.max(0, val * 125))
+
+      // Occasional dark pebble
+      if (Math.random() < 0.003) {
+        const dark = 0.3 + Math.random() * 0.2
+        sd[i] = dark * 140
+        sd[i + 1] = dark * 120
+        sd[i + 2] = dark * 90
+      } else {
+        sd[i] = r
+        sd[i + 1] = g
+        sd[i + 2] = b
+      }
+      sd[i + 3] = 255
+    }
   }
   sandCtx.putImageData(sandData, 0, 0)
   const sandTex = new THREE.CanvasTexture(sandCanvas)
   sandTex.wrapS = THREE.RepeatWrapping
   sandTex.wrapT = THREE.RepeatWrapping
-  sandTex.repeat.set(4, 2)
+  sandTex.repeat.set(3, 1.5)
 
   const floorGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
   const floorMat = new THREE.MeshStandardMaterial({
     map: sandTex,
-    color: 0xd4b880,
-    emissive: 0xb08040,
-    emissiveIntensity: 1.5,
+    color: 0xc8a870,
+    emissive: 0x8a6530,
+    emissiveIntensity: 0.6,
     roughness: 0.92,
     side: THREE.DoubleSide,
   })
