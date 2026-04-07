@@ -623,15 +623,27 @@ function animate() {
   camera.layers.set(0)
   composer.render()
 
-  // Render frame (layer 1) directly on top — no underwater distortion
-  camera.layers.set(1)
+  // Render frame (layer 1) directly on top — no underwater distortion,
+  // but with correct depth occlusion so fish in front of bars aren't hidden.
   const savedBg = scene.background
   const savedFog = scene.fog
   scene.background = null
   scene.fog = null
   renderer.autoClear = false
+
+  // Clear only depth (preserve compositor color), then re-render layer-0
+  // depth so frame bars properly depth-test against fish.
   renderer.clearDepth()
+  camera.layers.set(0)
+  const gl = renderer.getContext()
+  gl.colorMask(false, false, false, false)
   renderer.render(scene, camera)
+  gl.colorMask(true, true, true, true)
+
+  // Now render frame with correct depth occlusion
+  camera.layers.set(1)
+  renderer.render(scene, camera)
+
   renderer.autoClear = true
   scene.background = savedBg
   scene.fog = savedFog
