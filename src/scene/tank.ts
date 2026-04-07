@@ -32,7 +32,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     backColors.push(r, g, b)
   }
   backGeo.setAttribute('color', new THREE.Float32BufferAttribute(backColors, 3))
-  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0x0a2040, emissiveIntensity: 1.0, side: THREE.DoubleSide })
+  const backMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0x0a2040, emissiveIntensity: 1.0, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
   const backWall = new THREE.Mesh(backGeo, backMat)
   backWall.position.set(0, 0, -TANK.depth / 2)
   backWall.receiveShadow = true
