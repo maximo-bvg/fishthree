@@ -30,7 +30,7 @@ import { DecorationEffects } from './decorations/effects'
 import { preloadDecorationModels } from './decorations/model-loader'
 import { HUD } from './ui/hud'
 import { EditModeUI } from './ui/edit-mode'
-import { showFishListPanel, showAddFishPanel, showSettingsPanel, type PanelCallbacks } from './ui/panels'
+import { showFishListPanel, showAddFishPanel, showSettingsPanel, showLeaderboardPanel, type PanelCallbacks } from './ui/panels'
 import { saveState, loadState, DEFAULT_SETTINGS, type TankState, type TankSettings, type EconomyState, DEFAULT_ECONOMY } from './utils/storage'
 import { AudioManager } from './audio/audio-manager'
 import { GameState } from './game/state'
@@ -395,6 +395,12 @@ const hud = new HUD(app, {
   onOrbitToggle: () => cameraController.toOrbit(),
   onResetCamera: () => cameraController.toDefault(),
   onSettings: () => showSettingsPanel(hud, settings, panelCallbacks),
+  onLeaderboard: () => showLeaderboardPanel(
+    hud,
+    gameState.playerName,
+    gameState.totalCoinsEarned,
+    (name) => { gameState.playerName = name; persistState() },
+  ),
   onTankNameChange: (name) => {
     tankName = name
     persistState()

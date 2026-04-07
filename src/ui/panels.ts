@@ -190,3 +190,80 @@ export function showSettingsPanel(
     callbacks.onSfxVolume(parseInt(sfxSlider.value, 10) / 100)
   })
 }
+
+export function showLeaderboardPanel(
+  hud: HUD,
+  playerName: string | null,
+  totalCoinsEarned: number,
+  onSubmit: (name: string) => void,
+): void {
+  let html = `
+    <div class="panel-title">Leaderboard</div>
+    <button class="panel-close">&times;</button>
+    <div id="leaderboard-list" style="font-size:13px;opacity:0.6;">Loading...</div>
+    <div class="leaderboard-submit" style="margin-top:12px;border-top:1px solid rgba(100,180,255,0.2);padding-top:12px;">
+      <div style="font-size:12px;opacity:0.6;margin-bottom:6px;">Your score: ${Math.floor(totalCoinsEarned)} coins</div>
+      <div style="display:flex;gap:8px;">
+        <input id="lb-name" class="tank-name" placeholder="Your name" value="${playerName || ''}" style="flex:1;font-size:13px;" maxlength="20" />
+        <button class="edit-btn" id="lb-submit" style="padding:6px 14px;font-size:13px;">Submit</button>
+      </div>
+      <div id="lb-status" style="font-size:11px;margin-top:4px;opacity:0.6;"></div>
+    </div>
+  `
+
+  hud.showPanel(html)
+
+  // Fetch scores
+  fetch('/api/scores')
+    .then(r => r.json())
+    .then((entries: { rank: number; playerName: string; totalCoinsEarned: number }[]) => {
+      const listEl = document.getElementById('leaderboard-list')
+      if (!listEl) return
+      if (entries.length === 0) {
+        listEl.innerHTML = '<p style="opacity:0.6;">No scores yet. Be the first!</p>'
+        return
+      }
+      listEl.innerHTML = entries.map(e =>
+        `<div class="lb-row${e.playerName === playerName ? ' lb-self' : ''}">
+          <span class="lb-rank">#${e.rank}</span>
+          <span class="lb-name">${e.playerName}</span>
+          <span class="lb-score">${Math.floor(e.totalCoinsEarned)}</span>
+        </div>`
+      ).join('')
+    })
+    .catch(() => {
+      const listEl = document.getElementById('leaderboard-list')
+      if (listEl) listEl.innerHTML = '<p style="opacity:0.6;">Could not load leaderboard.</p>'
+    })
+
+  // Submit handler
+  const panel = hud.getPanel()
+  const submitBtn = panel.querySelector('#lb-submit')
+  submitBtn?.addEventListener('click', () => {
+    const nameInput = panel.querySelector('#lb-name') as HTMLInputElement
+    const name = nameInput?.value.trim()
+    if (!name) return
+    onSubmit(name)
+
+    const statusEl = panel.querySelector('#lb-status')
+    if (statusEl) statusEl.textContent = 'Submitting...'
+
+    fetch('/api/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, totalCoinsEarned }),
+    })
+      .then(r => {
+        if (r.ok) {
+          if (statusEl) statusEl.textContent = 'Score submitted!'
+        } else {
+          return r.json().then(d => {
+            if (statusEl) statusEl.textContent = d.error || 'Failed to submit.'
+          })
+        }
+      })
+      .catch(() => {
+        if (statusEl) statusEl.textContent = 'Network error. Try again.'
+      })
+  })
+}

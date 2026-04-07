@@ -8,6 +8,7 @@ export interface HUDCallbacks {
   onOrbitToggle: () => void
   onResetCamera: () => void
   onSettings: () => void
+  onLeaderboard: () => void
   onTankNameChange: (name: string) => void
 }
 
@@ -69,6 +70,7 @@ export class HUD {
       { icon: '\u{1F504}', action: callbacks.onOrbitToggle, title: 'Orbit Camera (O)' },
       { icon: '\u{1F3E0}', action: callbacks.onResetCamera, title: 'Reset Camera (1)' },
       { icon: '\u{2699}',  action: callbacks.onSettings, title: 'Settings' },
+      { icon: '\u{1F3C6}', action: callbacks.onLeaderboard, title: 'Leaderboard' },
     ]
 
     for (const btn of buttons) {

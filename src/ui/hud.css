@@ -364,3 +364,32 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  gap: 8px;
+  border-bottom: 1px solid rgba(100, 180, 255, 0.1);
+}
+
+.lb-row.lb-self {
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.lb-rank {
+  width: 30px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.lb-name {
+  flex: 1;
+  font-size: 13px;
+}
+
+.lb-score {
+  font-size: 13px;
+  color: #ffd700;
+}
