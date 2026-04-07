@@ -175,7 +175,7 @@ interface Bubble {
   maxLife: number
 }
 
-const MAX_BUBBLES = 30
+const MAX_BUBBLES = 50
 const bubbles: Bubble[] = []
 let bubbleMat: THREE.ShaderMaterial
 let bubbleGeo: THREE.PlaneGeometry
@@ -245,6 +245,32 @@ function spawnBubble(): void {
     maxLife: 4 + Math.random() * 5,
   })
   bubbleScene.add(mesh)
+}
+
+/** Spawn 1-3 tiny bubbles at a fish's mouth position. */
+export function spawnMouthBubbles(mouthPos: THREE.Vector3): void {
+  const count = 1 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < count; i++) {
+    if (bubbles.length >= MAX_BUBBLES) return
+    const size = Math.random() * 0.04 + 0.02 // 0.02–0.06 — smaller than ambient bubbles
+    const mat = bubbleMat.clone()
+    const mesh = new THREE.Mesh(bubbleGeo, mat)
+    mesh.scale.setScalar(size)
+    mesh.position.set(
+      mouthPos.x + (Math.random() - 0.5) * 0.08,
+      mouthPos.y + (Math.random() - 0.5) * 0.05,
+      mouthPos.z + (Math.random() - 0.5) * 0.08,
+    )
+    bubbles.push({
+      mesh,
+      speed: 1.2 + Math.random() * 0.8, // rise faster than ambient
+      wobbleOffset: Math.random() * Math.PI * 2,
+      baseScale: size,
+      life: 0,
+      maxLife: 1.5 + Math.random() * 2, // shorter lifespan
+    })
+    bubbleScene.add(mesh)
+  }
 }
 
 export function updateBubbles(time: number, dt: number, camera: THREE.Camera): void {

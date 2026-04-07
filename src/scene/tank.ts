@@ -5,6 +5,7 @@ export const TANK = {
   width: 16,
   height: 9,
   depth: 8,
+  frameBar: 0.4,
 } as const
 
 export interface TankMeshes {

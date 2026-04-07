@@ -123,6 +123,8 @@ export class Fish {
   speedMultiplier = 1.0
 
   private time = Math.random() * 100
+  private bubbleTimer = Math.random() * 5
+  private bubbleInterval = 3 + Math.random() * 5
 
   constructor(speciesId: SpeciesId, name: string) {
     this.speciesId = speciesId
@@ -137,7 +139,7 @@ export class Fish {
     )
     this.targetVelocity = this.velocity.clone()
 
-    const margin = this.species.size * 2
+    const margin = this.species.size * 2 + TANK.frameBar
     this.mesh.position.set(
       THREE.MathUtils.randFloat(-TANK.width / 2 + margin, TANK.width / 2 - margin),
       THREE.MathUtils.randFloat(-TANK.height / 2 + margin, TANK.height / 2 - margin),
@@ -174,7 +176,7 @@ export class Fish {
 
   private applyWallAvoidance(): void {
     const pos = this.mesh.position
-    const m = this.species.size
+    const m = this.species.size + TANK.frameBar
     const hw = TANK.width / 2 - m
     const hh = TANK.height / 2 - m
     const hd = TANK.depth / 2 - m
@@ -207,7 +209,7 @@ export class Fish {
   }
 
   private clampToTank(): void {
-    const m = this.species.size
+    const m = this.species.size + TANK.frameBar
     const pos = this.mesh.position
     const hw = TANK.width / 2 - m
     const hh = TANK.height / 2 - m
@@ -220,4 +222,26 @@ export class Fish {
     if (pos.z < -hd) { pos.z = -hd; this.velocity.z *= -1; this.targetVelocity.z *= -1 }
     if (pos.z > hd) { pos.z = hd; this.velocity.z *= -1; this.targetVelocity.z *= -1 }
   }
+
+  /** Returns true when this fish should emit mouth bubbles. */
+  shouldEmitBubble(dt: number): boolean {
+    this.bubbleTimer += dt
+    if (this.bubbleTimer >= this.bubbleInterval) {
+      this.bubbleTimer = 0
+      this.bubbleInterval = 3 + Math.random() * 5
+      return true
+    }
+    return false
+  }
+
+  /** World position of the fish's mouth (front of body along facing direction). */
+  getMouthPosition(): THREE.Vector3 {
+    const dir = this.velocity.lengthSq() > 0.001
+      ? _dir.copy(this.velocity).normalize()
+      : _dir.set(0, 0, 1).applyEuler(this.mesh.rotation)
+    return _mouth.copy(this.mesh.position).addScaledVector(dir, this.species.bodyLength * 0.6)
+  }
 }
+
+const _dir = new THREE.Vector3()
+const _mouth = new THREE.Vector3()
