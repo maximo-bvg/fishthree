@@ -6,7 +6,19 @@ export const TANK = {
   height: 9,
   depth: 8,
   frameBar: 0.4,
+  sand: {
+    depth: 1.0,
+    segmentsX: 64,
+    segmentsZ: 32,
+    undulation: 0.15,
+    grain: 0.03,
+    moundRadius: 1.5,
+    moundHeight: 0.25,
+  },
 } as const
+
+/** Y position of the sand surface — single source of truth for all systems. */
+export const SAND_SURFACE_Y = -TANK.height / 2 + TANK.sand.depth
 
 export interface TankMeshes {
   backWall: THREE.Mesh
