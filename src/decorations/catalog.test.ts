@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { DECORATIONS, type DecorationId, type DecorationCategory } from './catalog'
 
 describe('DECORATIONS', () => {
-  it('has 11 items', () => {
-    expect(Object.keys(DECORATIONS)).toHaveLength(11)
+  it('has 24 items', () => {
+    expect(Object.keys(DECORATIONS)).toHaveLength(24)
   })
 
   it('every item has required fields', () => {

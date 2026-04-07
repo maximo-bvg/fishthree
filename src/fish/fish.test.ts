@@ -9,7 +9,7 @@ describe('FishStateMachine', () => {
 
   it('transitions from idle to wander after timer', () => {
     const sm = new FishStateMachine('wanderer')
-    sm.update(2.0, { threats: [], shelters: [], school: [], mouse: null, homeDecor: null })
+    sm.update(2.0, { threats: [], shelters: [], school: [], mouse: null, homeDecor: null, nearestFlake: null })
     expect(sm.current).toBe('wander')
   })
 
@@ -35,6 +35,7 @@ describe('FishStateMachine', () => {
       school: [{ distance: 1.0 }, { distance: 2.0 }],
       mouse: null,
       homeDecor: null,
+      nearestFlake: null,
     })
     expect(sm.current).toBe('school')
   })

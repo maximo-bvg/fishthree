@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { SPECIES, type SpeciesId } from './species'
 
 describe('SPECIES', () => {
-  const speciesIds: SpeciesId[] = ['tetra', 'clownfish', 'angelfish', 'pufferfish', 'barracuda', 'seahorse']
+  const speciesIds: SpeciesId[] = ['tetra', 'clownfish', 'angelfish', 'pufferfish', 'barracuda', 'seahorse', 'pleco', 'danio', 'jellyfish', 'guppy']
 
-  it('defines all 6 species', () => {
-    expect(Object.keys(SPECIES)).toHaveLength(6)
+  it('defines all 10 species', () => {
+    expect(Object.keys(SPECIES)).toHaveLength(10)
     for (const id of speciesIds) {
       expect(SPECIES[id]).toBeDefined()
     }
