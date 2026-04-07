@@ -57,6 +57,14 @@ export function updateFlee(fish: Fish, threats: THREE.Vector3[], _dt: number): v
   fish.targetVelocity.copy(_dir)
 }
 
+/** Find the obstacle radius for a position (0 if no obstacle there) */
+function obstacleRadiusAt(fish: Fish, pos: THREE.Vector3): number {
+  for (const obs of fish.obstacles) {
+    if (obs.position.distanceTo(pos) < obs.radius) return obs.radius
+  }
+  return 0
+}
+
 export function updateHide(fish: Fish, shelters: THREE.Vector3[], _dt: number): void {
   if (shelters.length === 0) { updateWander(fish, _dt); return }
   let nearest = shelters[0]
@@ -65,15 +73,21 @@ export function updateHide(fish: Fish, shelters: THREE.Vector3[], _dt: number): 
     const d = fish.position.distanceTo(shelters[i])
     if (d < minDist) { minDist = d; nearest = shelters[i] }
   }
-  _dir.subVectors(nearest, fish.position).normalize().multiplyScalar(fish.species.speed * 0.8)
-  fish.targetVelocity.copy(_dir)
-  if (minDist < 0.5) {
-    fish.targetVelocity.multiplyScalar(0.2)
+  const safeRadius = obstacleRadiusAt(fish, nearest) + fish.species.size + 0.5
+  if (minDist > safeRadius) {
+    _dir.subVectors(nearest, fish.position).normalize().multiplyScalar(fish.species.speed * 0.8)
+    fish.targetVelocity.copy(_dir)
+  } else {
+    // Orbit at safe distance
+    _dir.subVectors(fish.position, nearest)
+    _dir.crossVectors(_dir, new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(fish.species.speed * 0.3)
+    fish.targetVelocity.copy(_dir)
   }
 }
 
 export function updateTerritorial(fish: Fish, homePos: THREE.Vector3, intruders: Fish[], _dt: number): void {
-  const orbitRadius = 1.2
+  const minOrbit = obstacleRadiusAt(fish, homePos) + fish.species.size + 0.5
+  const orbitRadius = Math.max(minOrbit, 1.2)
   _toHome.subVectors(homePos, fish.position)
   const dist = _toHome.length()
 
@@ -88,8 +102,8 @@ export function updateTerritorial(fish: Fish, homePos: THREE.Vector3, intruders:
 
   if (dist > orbitRadius * 1.5) {
     _dir.copy(_toHome).normalize().multiplyScalar(fish.species.speed * 0.8)
-  } else if (dist < orbitRadius * 0.5) {
-    _dir.copy(_toHome).normalize().multiplyScalar(-fish.species.speed * 0.4)
+  } else if (dist < orbitRadius * 0.8) {
+    _dir.copy(_toHome).normalize().multiplyScalar(-fish.species.speed * 0.5)
   } else {
     _dir.crossVectors(_toHome, new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(fish.species.speed * 0.6)
   }

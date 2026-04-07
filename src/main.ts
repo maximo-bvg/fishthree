@@ -15,7 +15,7 @@ import {
   createCausticOverlays, updateCausticOverlays,
   createUnderwaterPass, updateUnderwaterPass,
 } from './scene/underwater'
-import { Fish, type StateContext } from './fish/fish'
+import { Fish, type StateContext, type Obstacle } from './fish/fish'
 import { type SpeciesId, SPECIES } from './fish/species'
 import { preloadModels } from './fish/mesh'
 import {
@@ -25,7 +25,7 @@ import {
 } from './fish/behaviors'
 import { FlakeManager } from './feeding/flakes'
 import { SlotManager, SLOT_DEFINITIONS } from './decorations/slots'
-import { type DecorationId, getDecorationModelPaths } from './decorations/catalog'
+import { DECORATIONS, type DecorationId, getDecorationModelPaths } from './decorations/catalog'
 import { DecorationEffects } from './decorations/effects'
 import { preloadDecorationModels } from './decorations/model-loader'
 import { HUD } from './ui/hud'
@@ -480,6 +480,24 @@ Promise.all([
 })
 
 // --- Fish behavior update ---
+function getObstacles(): Obstacle[] {
+  return slotManager.getOccupied()
+    .filter(({ state }) => state.mesh !== null)
+    .map(({ state }) => {
+      const mesh = state.mesh!
+      mesh.updateMatrixWorld(true)
+      const box = new THREE.Box3().setFromObject(mesh)
+      const center = new THREE.Vector3()
+      box.getCenter(center)
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      // Use the average of the two largest dimensions as radius
+      const dims = [size.x, size.y, size.z].sort((a, b) => b - a)
+      const radius = (dims[0] + dims[1]) / 4
+      return { position: center, radius }
+    })
+}
+
 function getDecorationPositions(): THREE.Vector3[] {
   return slotManager.getOccupied().map(({ index }) => SLOT_DEFINITIONS[index].position)
 }
@@ -511,8 +529,10 @@ function updateFishBehaviors(dt: number): void {
   const rockPositions = getRockPositions()
   const plantPositions = getPlantPositions()
   const activeFlakes = flakeManager.getActiveFlakes()
+  const obstacles = getObstacles()
 
   for (const fish of fishes) {
+    fish.obstacles = obstacles
     const threats: THREE.Vector3[] = []
     const school: Fish[] = []
     const intruders: Fish[] = []

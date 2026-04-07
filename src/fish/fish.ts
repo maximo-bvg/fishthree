@@ -111,6 +111,11 @@ export class FishStateMachine {
   }
 }
 
+export interface Obstacle {
+  position: THREE.Vector3
+  radius: number
+}
+
 export class Fish {
   mesh: THREE.Group
   species: SpeciesDefinition
@@ -121,6 +126,7 @@ export class Fish {
   targetVelocity: THREE.Vector3
   targetFlakeId: number | null = null
   speedMultiplier = 1.0
+  obstacles: Obstacle[] = []
 
   private time = Math.random() * 100
   private bubbleTimer = Math.random() * 5
@@ -159,8 +165,10 @@ export class Fish {
     this.time += dt
     this.applyWallAvoidance()
     this.velocity.lerp(this.targetVelocity, 0.05)
+    this.applyObstacleAvoidance()  // direct velocity override — after lerp so it can't be smoothed away
     this.mesh.position.addScaledVector(this.velocity, dt * this.speedMultiplier)
     this.clampToTank()
+    this.pushOutOfObstacles()  // absolute last — hard constraint, always wins
 
     // Orient fish to face movement direction using yaw/pitch (no lookAt — avoids up-vector flips)
     if (this.velocity.lengthSq() > 0.001) {
@@ -207,6 +215,60 @@ export class Fish {
     } else if (pos.z < -hd + margin) {
       const t = ((-hd + margin) - pos.z) / margin
       this.targetVelocity.z += strength * t * t
+    }
+  }
+
+  /** Steer velocity away from nearby obstacles — applied directly so it can't be smoothed away */
+  private applyObstacleAvoidance(): void {
+    const pos = this.mesh.position
+    const fishRadius = this.species.size
+    const _dir = new THREE.Vector3()
+
+    for (const obs of this.obstacles) {
+      _dir.subVectors(pos, obs.position)
+      const dist = _dir.length()
+      const hardRadius = obs.radius + fishRadius
+      const softRadius = hardRadius + 1.5 // detection margin
+      if (dist < softRadius && dist > 0.01) {
+        _dir.normalize()
+        const t = 1.0 - dist / softRadius // 0 at edge, 1 at center
+        // Stronger the deeper we are — cubic ramp for aggressive close-range push
+        const force = this.species.speed * 4.0 * t * t * t
+        this.velocity.addScaledVector(_dir, force)
+        // Also kill any velocity component heading toward the obstacle
+        if (dist < hardRadius + 0.5) {
+          const dot = this.velocity.dot(_dir)
+          if (dot < 0) {
+            this.velocity.addScaledVector(_dir, -dot)
+          }
+        }
+      }
+    }
+  }
+
+  /** Hard push fish out of any obstacle — absolute last step, always wins */
+  private pushOutOfObstacles(): void {
+    const pos = this.mesh.position
+    const fishRadius = this.species.size
+    const _dir = new THREE.Vector3()
+
+    for (const obs of this.obstacles) {
+      _dir.subVectors(pos, obs.position)
+      const dist = _dir.length()
+      const clearance = obs.radius + fishRadius
+      if (dist < clearance) {
+        if (dist < 0.01) {
+          _dir.set(Math.random() - 0.5, 0.5, Math.random() - 0.5).normalize()
+        } else {
+          _dir.normalize()
+        }
+        // Teleport fish to safe distance outside obstacle
+        pos.copy(obs.position).addScaledVector(_dir, clearance + 0.1)
+        // Redirect velocity outward
+        const speed = this.velocity.length()
+        this.velocity.copy(_dir).multiplyScalar(speed * 0.5)
+        this.targetVelocity.copy(this.velocity)
+      }
     }
   }
 
