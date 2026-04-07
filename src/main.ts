@@ -735,6 +735,7 @@ function updateFishBehaviors(dt: number): void {
     }
 
     fish.update(dt)
+    fish.updateHealthBar()
 
     if (fish.shouldEmitBubble(dt)) {
       spawnMouthBubbles(fish.getMouthPosition())

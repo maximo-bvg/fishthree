@@ -140,6 +140,8 @@ export class Fish {
   speedMultiplier = 1.0
   hunger = 0
   health = 1.0
+  healthBar: THREE.Sprite | null = null
+  private healthBarBg: THREE.Sprite | null = null
   obstacles: Obstacle[] = []
 
   private time = Math.random() * 100
@@ -165,6 +167,53 @@ export class Fish {
       THREE.MathUtils.randFloat(SAND_SURFACE_Y + margin, TANK.height / 2 - margin),
       THREE.MathUtils.randFloat(-TANK.depth / 2 + margin, TANK.depth / 2 - margin),
     )
+    this.createHealthBar()
+  }
+
+  createHealthBar(): void {
+    // Background (red)
+    const bgCanvas = document.createElement('canvas')
+    bgCanvas.width = 64
+    bgCanvas.height = 8
+    const bgCtx = bgCanvas.getContext('2d')!
+    bgCtx.fillStyle = '#ff3333'
+    bgCtx.roundRect(0, 0, 64, 8, 3)
+    bgCtx.fill()
+    const bgTex = new THREE.CanvasTexture(bgCanvas)
+    const bgMat = new THREE.SpriteMaterial({ map: bgTex, transparent: true, depthTest: false })
+    this.healthBarBg = new THREE.Sprite(bgMat)
+    this.healthBarBg.scale.set(0.5, 0.06, 1)
+    this.healthBarBg.visible = false
+    this.mesh.add(this.healthBarBg)
+
+    // Foreground (green)
+    const fgCanvas = document.createElement('canvas')
+    fgCanvas.width = 64
+    fgCanvas.height = 8
+    const fgCtx = fgCanvas.getContext('2d')!
+    fgCtx.fillStyle = '#33ff55'
+    fgCtx.roundRect(0, 0, 64, 8, 3)
+    fgCtx.fill()
+    const fgTex = new THREE.CanvasTexture(fgCanvas)
+    const fgMat = new THREE.SpriteMaterial({ map: fgTex, transparent: true, depthTest: false })
+    this.healthBar = new THREE.Sprite(fgMat)
+    this.healthBar.scale.set(0.5, 0.06, 1)
+    this.healthBar.visible = false
+    this.mesh.add(this.healthBar)
+  }
+
+  updateHealthBar(): void {
+    if (!this.healthBar || !this.healthBarBg) return
+    const show = this.health < 1.0
+    this.healthBar.visible = show
+    this.healthBarBg.visible = show
+    if (show) {
+      const yOffset = this.species.size + 0.15
+      this.healthBarBg.position.set(0, yOffset, 0)
+      this.healthBar.position.set(0, yOffset, 0)
+      this.healthBar.scale.x = 0.5 * this.health
+      this.healthBar.position.x = -0.25 * (1 - this.health)
+    }
   }
 
   get position(): THREE.Vector3 {
