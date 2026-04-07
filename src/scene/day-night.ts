@@ -218,6 +218,9 @@ export class DayNightCycle {
   /** Current time label */
   timeOfDay: TimeOfDay = 'noon'
 
+  /** Whether the day/night cycle is enabled */
+  enabled = true
+
   /** Cycle progress 0-1 */
   get cycleProgress(): number {
     return this.progress
@@ -242,8 +245,14 @@ export class DayNightCycle {
   }
 
   update(dt: number): void {
-    this.elapsed += dt
-    this.progress = (this.elapsed % CYCLE_DURATION) / CYCLE_DURATION
+    if (!this.enabled) {
+      // When disabled, snap to noon
+      this.elapsed = CYCLE_DURATION * 0.5
+      this.progress = 0.5
+    } else {
+      this.elapsed += dt
+      this.progress = (this.elapsed % CYCLE_DURATION) / CYCLE_DURATION
+    }
 
     const kf = interpolateKeyframes(this.progress)
 

@@ -25,7 +25,11 @@ describe('saveState / loadState', () => {
       settings: {
         caustics: true,
         bloom: false,
+        dayNightCycle: true,
         swayIntensity: 0.5,
+        masterVolume: 0.5,
+        ambientVolume: 0.5,
+        sfxVolume: 0.5,
       },
     }
 

@@ -16,6 +16,7 @@ export interface DecorationSave {
 export interface TankSettings {
   caustics: boolean
   bloom: boolean
+  dayNightCycle: boolean
   swayIntensity: number
   masterVolume: number
   ambientVolume: number
@@ -46,6 +47,7 @@ export function loadState(): TankState | null {
 export const DEFAULT_SETTINGS: TankSettings = {
   caustics: true,
   bloom: true,
+  dayNightCycle: true,
   swayIntensity: 0.5,
   masterVolume: 0.5,
   ambientVolume: 0.5,

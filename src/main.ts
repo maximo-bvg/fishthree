@@ -11,7 +11,7 @@ import { DayNightCycle } from './scene/day-night'
 import {
   createParticles, updateParticles,
   createLightRays, updateLightRays,
-  initBubbles, updateBubbles,
+  initBubbles, updateBubbles, spawnMouthBubbles,
   createCausticOverlays, updateCausticOverlays,
   createUnderwaterPass, updateUnderwaterPass,
 } from './scene/underwater'
@@ -286,6 +286,11 @@ const panelCallbacks: PanelCallbacks = {
     settings.bloom = on
     persistState()
   },
+  onToggleDayNight: (on) => {
+    settings.dayNightCycle = on
+    dayNight.enabled = on
+    persistState()
+  },
   onSwayIntensity: (value) => {
     settings.swayIntensity = value
     persistState()
@@ -394,6 +399,7 @@ function restoreState(): void {
   hud.setTankName(tankName)
   settings = { ...DEFAULT_SETTINGS, ...state.settings }
   lights.causticLight.visible = settings.caustics
+  dayNight.enabled = settings.dayNightCycle
   audioManager.setMasterVolume(settings.masterVolume)
   audioManager.setAmbientVolume(settings.ambientVolume)
   audioManager.setSfxVolume(settings.sfxVolume)
@@ -560,6 +566,10 @@ function updateFishBehaviors(dt: number): void {
     }
 
     fish.update(dt)
+
+    if (fish.shouldEmitBubble(dt)) {
+      spawnMouthBubbles(fish.getMouthPosition())
+    }
   }
 }
 

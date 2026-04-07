@@ -8,6 +8,7 @@ export interface PanelCallbacks {
   onRenameFish: (index: number, name: string) => void
   onToggleCaustics: (on: boolean) => void
   onToggleBloom: (on: boolean) => void
+  onToggleDayNight: (on: boolean) => void
   onSwayIntensity: (value: number) => void
   onScreenshot: () => void
   onMasterVolume: (value: number) => void
@@ -109,7 +110,7 @@ export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: numbe
 
 export function showSettingsPanel(
   hud: HUD,
-  settings: { caustics: boolean; bloom: boolean; swayIntensity: number; masterVolume: number; ambientVolume: number; sfxVolume: number },
+  settings: { caustics: boolean; bloom: boolean; dayNightCycle: boolean; swayIntensity: number; masterVolume: number; ambientVolume: number; sfxVolume: number },
   callbacks: PanelCallbacks,
 ): void {
   const html = `
@@ -122,6 +123,10 @@ export function showSettingsPanel(
     <div class="setting-row">
       <span class="setting-label">Bloom</span>
       <button class="setting-toggle${settings.bloom ? ' on' : ''}" data-setting="bloom"></button>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Day/Night Cycle</span>
+      <button class="setting-toggle${settings.dayNightCycle ? ' on' : ''}" data-setting="dayNight"></button>
     </div>
     <div class="setting-row">
       <span class="setting-label">Camera Sway</span>
@@ -151,6 +156,7 @@ export function showSettingsPanel(
       const isOn = btn.classList.contains('on')
       if (setting === 'caustics') callbacks.onToggleCaustics(isOn)
       if (setting === 'bloom') callbacks.onToggleBloom(isOn)
+      if (setting === 'dayNight') callbacks.onToggleDayNight(isOn)
     })
   })
 
