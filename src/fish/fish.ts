@@ -142,7 +142,7 @@ export class Fish {
     const margin = this.species.size * 2 + TANK.frameBar
     this.mesh.position.set(
       THREE.MathUtils.randFloat(-TANK.width / 2 + margin, TANK.width / 2 - margin),
-      THREE.MathUtils.randFloat(-TANK.height / 2 + margin, TANK.height / 2 - margin),
+      THREE.MathUtils.randFloat(SAND_SURFACE_Y + margin, TANK.height / 2 - margin),
       THREE.MathUtils.randFloat(-TANK.depth / 2 + margin, TANK.depth / 2 - margin),
     )
   }
