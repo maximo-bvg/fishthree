@@ -393,3 +393,8 @@
   font-size: 13px;
   color: #ffd700;
 }
+
+@keyframes pulse-hint {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 12px rgba(34, 170, 85, 0.8); }
+}

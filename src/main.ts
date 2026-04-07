@@ -474,6 +474,12 @@ function restoreState(): void {
     // New player: empty tank, starting coins
     gameState.earnCoins(STARTING_COINS, 'new_game')
     showToast('Welcome! Visit the shop to buy your first fish.')
+    // Brief pulse on the shop button to guide new players
+    const shopBtn = document.querySelectorAll('.sidebar-btn')[1] as HTMLElement
+    if (shopBtn) {
+      shopBtn.style.animation = 'pulse-hint 1.5s ease-in-out 3'
+      setTimeout(() => { shopBtn.style.animation = '' }, 4500)
+    }
     return
   }
 
