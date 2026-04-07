@@ -48,9 +48,9 @@ export function createLighting(scene: THREE.Scene): Lights {
   rightFill.position.set(TANK.width / 2, 1, 0)
   scene.add(rightFill)
 
-  // Bottom light — shines upward from the floor
+  // Bottom light — shines upward from below the sand
   const bottomLight = new THREE.DirectionalLight(0x88bbdd, 3.0)
-  bottomLight.position.set(0, SAND_SURFACE_Y, 0)
+  bottomLight.position.set(0, SAND_SURFACE_Y - 0.5, 0)
   bottomLight.target.position.set(0, TANK.height, 0)
   scene.add(bottomLight)
   scene.add(bottomLight.target)
