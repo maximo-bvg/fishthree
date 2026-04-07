@@ -364,13 +364,19 @@ export function updateCausticOverlays(time: number): void {
   }
 }
 
-// --- Underwater post-processing pass (wave distortion + color grading) ---
+// --- Underwater post-processing pass (depth-aware volumetric water) ---
+
+const _frontGlassCenter = new THREE.Vector3(0, 0, TANK.depth / 2)
 
 export function createUnderwaterPass(): ShaderPass {
   const pass = new ShaderPass({
     uniforms: {
       tDiffuse: { value: null },
+      tDepth: { value: null },
       uTime: { value: 0 },
+      cameraNear: { value: 0.1 },
+      cameraFar: { value: 100 },
+      uMinDepth: { value: 10.0 },
       uWaterTint: { value: new THREE.Color(0x1a5570) },
     },
     vertexShader: /* glsl */ `
@@ -381,45 +387,89 @@ export function createUnderwaterPass(): ShaderPass {
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <packing>
+
       uniform sampler2D tDiffuse;
+      uniform sampler2D tDepth;
       uniform float uTime;
+      uniform float cameraNear;
+      uniform float cameraFar;
+      uniform float uMinDepth;
       uniform vec3 uWaterTint;
       varying vec2 vUv;
 
-      void main() {
-        // Multi-frequency wave distortion — visible refraction
-        vec2 uv = vUv;
-        uv.x += sin(vUv.y * 8.0 + uTime * 1.2) * 0.003;
-        uv.x += sin(vUv.y * 17.0 - uTime * 0.7) * 0.0018;
-        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0025;
-        uv.y += cos(vUv.x * 20.0 - uTime * 1.1) * 0.0012;
+      float getLinearDepth(vec2 coord) {
+        float fragCoordZ = texture2D(tDepth, coord).x;
+        float viewZ = perspectiveDepthToViewZ(fragCoordZ, cameraNear, cameraFar);
+        return -viewZ;
+      }
 
-        // Light scattering — soft 5-tap blur
-        float scatter = 0.0015;
+      void main() {
+        vec2 uv = vUv;
+
+        // Water path length for this pixel
+        float linearDepth = getLinearDepth(uv);
+        float waterDist = max(0.0, linearDepth - uMinDepth);
+
+        // Wave distortion — depth-modulated (near glass = less distortion)
+        float distMod = 0.3 + 0.7 * smoothstep(0.0, 4.0, waterDist);
+        uv.x += sin(vUv.y * 8.0 + uTime * 1.2) * 0.003 * distMod;
+        uv.x += sin(vUv.y * 17.0 - uTime * 0.7) * 0.0018 * distMod;
+        uv.y += cos(vUv.x * 10.0 + uTime * 0.9) * 0.0025 * distMod;
+        uv.y += cos(vUv.x * 20.0 - uTime * 1.1) * 0.0012 * distMod;
+
+        // Re-read depth at distorted coordinates
+        linearDepth = getLinearDepth(uv);
+        waterDist = max(0.0, linearDepth - uMinDepth);
+
+        // Depth-dependent scatter blur (near = sharp, far = soft)
+        float scatter = mix(0.0004, 0.0022, smoothstep(0.0, 8.0, waterDist));
         vec4 color = texture2D(tDiffuse, uv) * 0.36;
         color += texture2D(tDiffuse, uv + vec2(scatter, 0.0)) * 0.16;
         color += texture2D(tDiffuse, uv - vec2(scatter, 0.0)) * 0.16;
         color += texture2D(tDiffuse, uv + vec2(0.0, scatter)) * 0.16;
         color += texture2D(tDiffuse, uv - vec2(0.0, scatter)) * 0.16;
 
-        // Chromatic aberration — water disperses wavelengths
-        float ca = 0.0018;
-        color.r = mix(color.r, texture2D(tDiffuse, uv + vec2(ca, ca * 0.5)).r, 0.5);
-        color.b = mix(color.b, texture2D(tDiffuse, uv - vec2(ca, ca * 0.3)).b, 0.5);
+        // Edge-weighted chromatic aberration (glass dispersion — stronger at edges)
+        vec2 fromCenter = (uv - 0.5) * vec2(1.6, 0.9);
+        float edgeDist = length(fromCenter);
+        float caAmount = 0.0022 * smoothstep(0.15, 0.75, edgeDist);
+        vec2 caDir = normalize(fromCenter + 0.0001);
+        color.r = mix(color.r, texture2D(tDiffuse, uv + caDir * caAmount).r, 0.5);
+        color.b = mix(color.b, texture2D(tDiffuse, uv - caDir * caAmount).b, 0.5);
 
-        // Underwater color grading — tint driven by day/night cycle
-        color.rgb = mix(color.rgb, uWaterTint, 0.30);
+        // Beer-Lambert per-channel absorption — red absorbed ~17x faster than blue
+        vec3 absorption = vec3(0.35, 0.07, 0.02);
+        vec3 fogColor = uWaterTint;
+        vec3 transmittance = exp(-absorption * waterDist);
+        color.rgb = color.rgb * transmittance + fogColor * (1.0 - transmittance);
 
-        // Depth-gradient fog — bottom of screen = deeper = more tinted
-        float depthFog = smoothstep(0.85, 0.05, vUv.y);
-        color.rgb = mix(color.rgb, uWaterTint * 0.4, depthFog * 0.20);
+        // Animated turbidity (Tyndall scattering — volumetric haze)
+        float n1 = sin(vUv.x * 8.3 + vUv.y * 6.1 + uTime * 0.07) * 0.5 + 0.5;
+        float n2 = sin(vUv.x * 14.7 - vUv.y * 11.3 + uTime * 0.13) * 0.5 + 0.5;
+        float n3 = cos(vUv.x * 5.9 - vUv.y * 8.7 + uTime * 0.19) * 0.5 + 0.5;
+        float turbidity = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.025;
+        float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        color.rgb = mix(color.rgb, fogColor, turbidity * (1.0 - brightness * 0.5));
 
-        // Desaturation — water absorbs warm colors first
+        // Black point lift — scattered light fills shadows underwater
+        vec3 scatterLight = vec3(0.025, 0.055, 0.075);
+        color.rgb = mix(scatterLight, color.rgb, 0.92);
+
+        // Depth-dependent desaturation — warm colours vanish with distance
         float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        color.rgb = mix(color.rgb, vec3(lum) * vec3(0.5, 0.75, 1.0), 0.25);
+        vec3 coolMono = vec3(lum) * vec3(0.55, 0.82, 1.0);
+        float desat = (1.0 - transmittance.r) * 0.3;
+        color.rgb = mix(color.rgb, coolMono, desat);
 
-        // Mild light absorption
-        color.rgb *= 0.96;
+        // Vertical depth gradient — bottom is darker with more fog
+        float vertFade = smoothstep(0.0, 0.75, vUv.y);
+        float bottomFog = (1.0 - vertFade) * 0.1;
+        color.rgb = mix(color.rgb, fogColor * 0.4, bottomFog * (1.0 - brightness * 0.5));
+
+        // Subtle vignette — glass edge darkening
+        float vignette = 1.0 - edgeDist * 0.25;
+        color.rgb *= vignette;
 
         gl_FragColor = color;
       }
@@ -428,6 +478,7 @@ export function createUnderwaterPass(): ShaderPass {
   return pass
 }
 
-export function updateUnderwaterPass(pass: ShaderPass, time: number): void {
+export function updateUnderwaterPass(pass: ShaderPass, time: number, cameraPos: THREE.Vector3): void {
   pass.uniforms['uTime'].value = time
+  pass.uniforms['uMinDepth'].value = cameraPos.distanceTo(_frontGlassCenter)
 }

@@ -42,8 +42,15 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 app.appendChild(renderer.domElement)
 
-// --- Post-processing ---
-const composer = new EffectComposer(renderer)
+// --- Post-processing (with depth texture for underwater absorption) ---
+const depthTexture = new THREE.DepthTexture(window.innerWidth, window.innerHeight)
+depthTexture.format = THREE.DepthFormat
+depthTexture.type = THREE.UnsignedIntType
+
+const composerTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+  depthTexture,
+})
+const composer = new EffectComposer(renderer, composerTarget)
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x2a7abb)
@@ -72,6 +79,9 @@ const bloomPass = new UnrealBloomPass(
 composer.addPass(bloomPass)
 
 const underwaterPass = createUnderwaterPass()
+underwaterPass.uniforms['tDepth'].value = composerTarget.depthTexture
+underwaterPass.uniforms['cameraNear'].value = camera.near
+underwaterPass.uniforms['cameraFar'].value = camera.far
 composer.addPass(underwaterPass)
 
 const dayNight = new DayNightCycle(lights, scene)
@@ -589,7 +599,7 @@ function animate() {
   updateLightRays(lightRays, elapsed)
   updateBubbles(elapsed, dt, camera)
   updateCausticOverlays(elapsed)
-  updateUnderwaterPass(underwaterPass, elapsed)
+  updateUnderwaterPass(underwaterPass, elapsed, camera.position)
 
   // Swap water meshes based on camera position — Water2 breaks above the surface
   const aboveWater = camera.position.y >= TANK.height / 2
