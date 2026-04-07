@@ -9,6 +9,15 @@ const FLEE_THRESHOLD = 3.0
 const REACT_THRESHOLD = 2.0
 const IDLE_DURATION = 1.0
 
+// Reusable temp vectors for obstacle avoidance (avoid per-frame allocation)
+const _velDir = new THREE.Vector3()
+const _toObs = new THREE.Vector3()
+const _perp = new THREE.Vector3()
+const _nearestToCenter = new THREE.Vector3()
+const _lateral = new THREE.Vector3()
+const _pushDir = new THREE.Vector3()
+const _lateral2 = new THREE.Vector3()
+
 interface ProximityInfo {
   distance: number
 }
@@ -114,6 +123,7 @@ export class FishStateMachine {
 export interface Obstacle {
   position: THREE.Vector3
   radius: number
+  decorationId?: string | null
 }
 
 export class Fish {
@@ -218,55 +228,85 @@ export class Fish {
     }
   }
 
-  /** Steer velocity away from nearby obstacles — applied directly so it can't be smoothed away */
+  /**
+   * Ray-based look-ahead obstacle avoidance (Craig Reynolds style).
+   * Only steers when the fish's velocity would carry it INTO an obstacle.
+   * Applies a lateral dodge force, not a radial push — so fish can orbit
+   * near decorations without triggering avoidance.
+   */
   private applyObstacleAvoidance(): void {
     const pos = this.mesh.position
+    const speed = this.velocity.length()
+    if (speed < 0.01) return
+
     const fishRadius = this.species.size
-    const _dir = new THREE.Vector3()
+    const lookAhead = Math.max(speed * 1.5, 1.5) // probe length
+    const velDir = _velDir.copy(this.velocity).divideScalar(speed) // normalized velocity
+
+    let nearestT = Infinity
+    let nearestObs: Obstacle | null = null
+    let nearestToCenter = _nearestToCenter.set(0, 0, 0)
 
     for (const obs of this.obstacles) {
-      _dir.subVectors(pos, obs.position)
-      const dist = _dir.length()
-      const hardRadius = obs.radius + fishRadius
-      const softRadius = hardRadius + 1.5 // detection margin
-      if (dist < softRadius && dist > 0.01) {
-        _dir.normalize()
-        const t = 1.0 - dist / softRadius // 0 at edge, 1 at center
-        // Stronger the deeper we are — cubic ramp for aggressive close-range push
-        const force = this.species.speed * 4.0 * t * t * t
-        this.velocity.addScaledVector(_dir, force)
-        // Also kill any velocity component heading toward the obstacle
-        if (dist < hardRadius + 0.5) {
-          const dot = this.velocity.dot(_dir)
-          if (dot < 0) {
-            this.velocity.addScaledVector(_dir, -dot)
-          }
-        }
+      // Vector from fish to obstacle center
+      _toObs.subVectors(obs.position, pos)
+      // Project onto velocity direction
+      const projLen = _toObs.dot(velDir)
+      if (projLen < -obs.radius || projLen > lookAhead + obs.radius) continue // behind or too far
+
+      // Perpendicular distance from velocity ray to obstacle center
+      _perp.copy(_toObs).addScaledVector(velDir, -projLen)
+      const perpDist = _perp.length()
+      const combinedRadius = obs.radius + fishRadius
+
+      if (perpDist < combinedRadius && projLen < nearestT) {
+        nearestT = projLen
+        nearestObs = obs
+        nearestToCenter.copy(_perp)
       }
     }
+
+    if (!nearestObs) return
+
+    // Compute lateral dodge direction (perpendicular to velocity, away from obstacle)
+    const perpDist = nearestToCenter.length()
+    if (perpDist < 0.01) {
+      // Head-on — dodge to a random lateral direction
+      _lateral.crossVectors(velDir, new THREE.Vector3(0, 1, 0))
+      if (_lateral.lengthSq() < 0.01) _lateral.set(1, 0, 0)
+    } else {
+      // Dodge away from the obstacle center
+      _lateral.copy(nearestToCenter).normalize()
+    }
+
+    // Force scales with urgency: closer = stronger
+    const urgency = 1.0 - Math.max(0, nearestT) / lookAhead
+    const force = this.species.speed * 3.0 * urgency
+    this.velocity.addScaledVector(_lateral, force)
   }
 
   /** Hard push fish out of any obstacle — absolute last step, always wins */
   private pushOutOfObstacles(): void {
     const pos = this.mesh.position
     const fishRadius = this.species.size
-    const _dir = new THREE.Vector3()
 
     for (const obs of this.obstacles) {
-      _dir.subVectors(pos, obs.position)
-      const dist = _dir.length()
+      _pushDir.subVectors(pos, obs.position)
+      const dist = _pushDir.length()
       const clearance = obs.radius + fishRadius
       if (dist < clearance) {
         if (dist < 0.01) {
-          _dir.set(Math.random() - 0.5, 0.5, Math.random() - 0.5).normalize()
+          _pushDir.set(Math.random() - 0.5, 0.5, Math.random() - 0.5).normalize()
         } else {
-          _dir.normalize()
+          _pushDir.normalize()
         }
-        // Teleport fish to safe distance outside obstacle
-        pos.copy(obs.position).addScaledVector(_dir, clearance + 0.1)
-        // Redirect velocity outward
-        const speed = this.velocity.length()
-        this.velocity.copy(_dir).multiplyScalar(speed * 0.5)
+        pos.copy(obs.position).addScaledVector(_pushDir, clearance + 0.1)
+        // Redirect velocity tangentially so fish doesn't re-enter
+        const speed = this.velocity.length() || this.species.speed * 0.5
+        _lateral2.crossVectors(_pushDir, new THREE.Vector3(0, 1, 0))
+        if (_lateral2.lengthSq() < 0.01) _lateral2.set(1, 0, 0)
+        _lateral2.normalize()
+        this.velocity.copy(_lateral2).multiplyScalar(speed)
         this.targetVelocity.copy(this.velocity)
       }
     }

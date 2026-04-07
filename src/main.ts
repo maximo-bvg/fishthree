@@ -480,8 +480,12 @@ Promise.all([
 })
 
 // --- Fish behavior update ---
-function getObstacles(): Obstacle[] {
-  return slotManager.getOccupied()
+
+/** Single authoritative source for obstacle positions + radii, computed from actual meshes */
+let cachedObstacles: Obstacle[] = []
+
+function recomputeObstacles(): void {
+  cachedObstacles = slotManager.getOccupied()
     .filter(({ state }) => state.mesh !== null)
     .map(({ state }) => {
       const mesh = state.mesh!
@@ -491,15 +495,15 @@ function getObstacles(): Obstacle[] {
       box.getCenter(center)
       const size = new THREE.Vector3()
       box.getSize(size)
-      // Use the average of the two largest dimensions as radius
       const dims = [size.x, size.y, size.z].sort((a, b) => b - a)
       const radius = (dims[0] + dims[1]) / 4
-      return { position: center, radius }
+      return { position: center, radius, decorationId: state.decorationId }
     })
 }
 
+// All position getters now derive from the same obstacle data
 function getDecorationPositions(): THREE.Vector3[] {
-  return slotManager.getOccupied().map(({ index }) => SLOT_DEFINITIONS[index].position)
+  return cachedObstacles.map(o => o.position)
 }
 
 const ROCK_IDS: Set<DecorationId> = new Set([
@@ -510,29 +514,29 @@ const PLANT_IDS: Set<DecorationId> = new Set([
 ])
 
 function getRockPositions(): THREE.Vector3[] {
-  return slotManager.getOccupied()
-    .filter(({ state }) => state.decorationId !== null && ROCK_IDS.has(state.decorationId))
-    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+  return cachedObstacles
+    .filter(o => o.decorationId && ROCK_IDS.has(o.decorationId))
+    .map(o => o.position)
 }
 
 function getPlantPositions(): THREE.Vector3[] {
-  return slotManager.getOccupied()
-    .filter(({ state }) => state.decorationId !== null && PLANT_IDS.has(state.decorationId))
-    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+  return cachedObstacles
+    .filter(o => o.decorationId && PLANT_IDS.has(o.decorationId))
+    .map(o => o.position)
 }
 
 function updateFishBehaviors(dt: number): void {
   raycaster.setFromCamera(mouseNDC, camera)
   raycaster.ray.intersectPlane(mousePlane, mouseWorld)
 
+  recomputeObstacles()
   const decorPositions = getDecorationPositions()
   const rockPositions = getRockPositions()
   const plantPositions = getPlantPositions()
   const activeFlakes = flakeManager.getActiveFlakes()
-  const obstacles = getObstacles()
 
   for (const fish of fishes) {
-    fish.obstacles = obstacles
+    fish.obstacles = cachedObstacles
     const threats: THREE.Vector3[] = []
     const school: Fish[] = []
     const intruders: Fish[] = []
