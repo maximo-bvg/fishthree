@@ -111,6 +111,16 @@ let selectedDecorationId: DecorationId | null = null
 const MAX_FISH = 12
 const MAX_DECOR = 20
 
+function remoundSand(): void {
+  const floorPositions = slotManager.getOccupied()
+    .filter(({ index }) => {
+      const zone = SLOT_DEFINITIONS[index].zone
+      return zone === 'floor_back' || zone === 'floor_front'
+    })
+    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+  moundSandAroundDecorations(tankMeshes, floorPositions)
+}
+
 // --- Mouse tracking ---
 const raycaster = new THREE.Raycaster()
 const mouseNDC = new THREE.Vector2(999, 999)
@@ -181,14 +191,7 @@ window.addEventListener('click', (e) => {
         effects.unregister(mesh)
         scene.remove(mesh)
       }
-      // Re-mound sand around all floor decorations
-      const floorPositions = slotManager.getOccupied()
-        .filter(({ index: idx }) => {
-          const zone = SLOT_DEFINITIONS[idx].zone
-          return zone === 'floor_back' || zone === 'floor_front'
-        })
-        .map(({ index: idx }) => SLOT_DEFINITIONS[idx].position)
-      moundSandAroundDecorations(tankMeshes, floorPositions)
+      remoundSand()
     } else if (selectedDecorationId) {
       if (slotManager.place(slotIndex, selectedDecorationId)) {
         const newSlot = slotManager.getSlot(slotIndex)
@@ -196,14 +199,7 @@ window.addEventListener('click', (e) => {
           scene.add(newSlot.mesh)
           effects.register(selectedDecorationId, newSlot.mesh, SLOT_DEFINITIONS[slotIndex].zone)
         }
-        // Re-mound sand around all floor decorations
-        const floorPositions = slotManager.getOccupied()
-          .filter(({ index: idx }) => {
-            const zone = SLOT_DEFINITIONS[idx].zone
-            return zone === 'floor_back' || zone === 'floor_front'
-          })
-          .map(({ index: idx }) => SLOT_DEFINITIONS[idx].position)
-        moundSandAroundDecorations(tankMeshes, floorPositions)
+        remoundSand()
       }
     }
 
@@ -433,14 +429,7 @@ function restoreState(): void {
     }
   }
 
-  // Mound sand around placed decorations
-  const floorSlotPositions = slotManager.getOccupied()
-    .filter(({ index }) => {
-      const zone = SLOT_DEFINITIONS[index].zone
-      return zone === 'floor_back' || zone === 'floor_front'
-    })
-    .map(({ index }) => SLOT_DEFINITIONS[index].position)
-  moundSandAroundDecorations(tankMeshes, floorSlotPositions)
+  remoundSand()
 
   updateHUDCounts()
 }

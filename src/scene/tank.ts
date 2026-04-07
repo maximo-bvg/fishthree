@@ -659,14 +659,13 @@ export function moundSandAroundDecorations(
   meshes: TankMeshes,
   decorationWorldPositions: THREE.Vector3[],
 ): void {
-  if (decorationWorldPositions.length === 0) return
-
   const floorGeo = meshes.floor.geometry as THREE.PlaneGeometry
   const floorPos = floorGeo.attributes.position as THREE.BufferAttribute
   const radius = TANK.sand.moundRadius
   const peakHeight = TANK.sand.moundHeight
 
-  // Reset to base displacement before applying mounds
+  // Reset to base displacement before applying mounds (always, even if empty —
+  // so removing the last decoration properly flattens the sand back)
   if (baseDisplacements) {
     for (let i = 0; i < floorPos.count; i++) {
       floorPos.setZ(i, baseDisplacements[i])
