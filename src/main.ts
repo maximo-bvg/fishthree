@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
-import { createTank, updateWaterSurface, TANK } from './scene/tank'
+import { createTank, updateWaterSurface, TANK, SAND_SURFACE_Y, moundSandAroundDecorations } from './scene/tank'
 import { createCamera } from './scene/camera'
 import { CameraController } from './scene/camera-modes'
 import { createLighting, updateCaustics } from './scene/lighting'
@@ -181,6 +181,14 @@ window.addEventListener('click', (e) => {
         effects.unregister(mesh)
         scene.remove(mesh)
       }
+      // Re-mound sand around all floor decorations
+      const floorPositions = slotManager.getOccupied()
+        .filter(({ index: idx }) => {
+          const zone = SLOT_DEFINITIONS[idx].zone
+          return zone === 'floor_back' || zone === 'floor_front'
+        })
+        .map(({ index: idx }) => SLOT_DEFINITIONS[idx].position)
+      moundSandAroundDecorations(tankMeshes, floorPositions)
     } else if (selectedDecorationId) {
       if (slotManager.place(slotIndex, selectedDecorationId)) {
         const newSlot = slotManager.getSlot(slotIndex)
@@ -188,6 +196,14 @@ window.addEventListener('click', (e) => {
           scene.add(newSlot.mesh)
           effects.register(selectedDecorationId, newSlot.mesh, SLOT_DEFINITIONS[slotIndex].zone)
         }
+        // Re-mound sand around all floor decorations
+        const floorPositions = slotManager.getOccupied()
+          .filter(({ index: idx }) => {
+            const zone = SLOT_DEFINITIONS[idx].zone
+            return zone === 'floor_back' || zone === 'floor_front'
+          })
+          .map(({ index: idx }) => SLOT_DEFINITIONS[idx].position)
+        moundSandAroundDecorations(tankMeshes, floorPositions)
       }
     }
 
@@ -416,6 +432,15 @@ function restoreState(): void {
       effects.register(state.decorations[i].decorationId, mesh, SLOT_DEFINITIONS[state.decorations[i].slotIndex].zone)
     }
   }
+
+  // Mound sand around placed decorations
+  const floorSlotPositions = slotManager.getOccupied()
+    .filter(({ index }) => {
+      const zone = SLOT_DEFINITIONS[index].zone
+      return zone === 'floor_back' || zone === 'floor_front'
+    })
+    .map(({ index }) => SLOT_DEFINITIONS[index].position)
+  moundSandAroundDecorations(tankMeshes, floorSlotPositions)
 
   updateHUDCounts()
 }

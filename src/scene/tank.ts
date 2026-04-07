@@ -650,3 +650,97 @@ export function updateWaterSurface(meshes: TankMeshes, dt: number, time: number)
     ;(wl.material as THREE.ShaderMaterial).uniforms.uTime.value = time
   }
 }
+
+/**
+ * Raises sand vertices near decoration positions to create natural mounding.
+ * Call after decorations are placed. Mutates the floor and panel geometries.
+ */
+export function moundSandAroundDecorations(
+  meshes: TankMeshes,
+  decorationWorldPositions: THREE.Vector3[],
+): void {
+  if (decorationWorldPositions.length === 0) return
+
+  const floorGeo = meshes.floor.geometry as THREE.PlaneGeometry
+  const floorPos = floorGeo.attributes.position as THREE.BufferAttribute
+  const radius = TANK.sand.moundRadius
+  const peakHeight = TANK.sand.moundHeight
+
+  // Reset to base displacement before applying mounds
+  if (baseDisplacements) {
+    for (let i = 0; i < floorPos.count; i++) {
+      floorPos.setZ(i, baseDisplacements[i])
+    }
+  }
+
+  // Displace floor vertices near decorations
+  for (let i = 0; i < floorPos.count; i++) {
+    const lx = floorPos.getX(i)
+    const ly = floorPos.getY(i)
+    // Convert to world XZ: world_x = lx, world_z = -ly
+    const wx = lx
+    const wz = -ly
+
+    let maxRaise = 0
+    for (const dpos of decorationWorldPositions) {
+      const dx = wx - dpos.x
+      const dz = wz - dpos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist < radius) {
+        // Smooth cosine falloff
+        const t = dist / radius
+        const raise = peakHeight * (Math.cos(t * Math.PI) * 0.5 + 0.5)
+        maxRaise = Math.max(maxRaise, raise)
+      }
+    }
+
+    if (maxRaise > 0) {
+      floorPos.setZ(i, floorPos.getZ(i) + maxRaise)
+    }
+  }
+
+  floorPos.needsUpdate = true
+  floorGeo.computeVertexNormals()
+
+  // Rebuild side panels to match updated surface
+  const segX = TANK.sand.segmentsX
+  const segZ = TANK.sand.segmentsZ
+  const colCount = segX + 1
+  const rowCount = segZ + 1
+
+  // Update front panel (sandPanels[0])
+  const frontPanel = meshes.sandPanels[0]
+  const frontPanelPos = frontPanel.geometry.attributes.position as THREE.BufferAttribute
+  for (let col = 0; col < colCount; col++) {
+    const floorIdx = segZ * colCount + col
+    const lz = floorPos.getZ(floorIdx)
+    const topIdx = col * 2 + 1  // odd indices are top vertices
+    frontPanelPos.setY(topIdx, SAND_SURFACE_Y + lz)
+  }
+  frontPanelPos.needsUpdate = true
+  frontPanel.geometry.computeVertexNormals()
+
+  // Update left panel (sandPanels[1])
+  const leftPanel = meshes.sandPanels[1]
+  const leftPanelPos = leftPanel.geometry.attributes.position as THREE.BufferAttribute
+  for (let row = 0; row < rowCount; row++) {
+    const floorIdx = row * colCount
+    const lz = floorPos.getZ(floorIdx)
+    const topIdx = row * 2 + 1
+    leftPanelPos.setY(topIdx, SAND_SURFACE_Y + lz)
+  }
+  leftPanelPos.needsUpdate = true
+  leftPanel.geometry.computeVertexNormals()
+
+  // Update right panel (sandPanels[2])
+  const rightPanel = meshes.sandPanels[2]
+  const rightPanelPos = rightPanel.geometry.attributes.position as THREE.BufferAttribute
+  for (let row = 0; row < rowCount; row++) {
+    const floorIdx = row * colCount + segX
+    const lz = floorPos.getZ(floorIdx)
+    const topIdx = row * 2 + 1
+    rightPanelPos.setY(topIdx, SAND_SURFACE_Y + lz)
+  }
+  rightPanelPos.needsUpdate = true
+  rightPanel.geometry.computeVertexNormals()
+}
