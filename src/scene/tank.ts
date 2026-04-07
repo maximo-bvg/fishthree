@@ -25,11 +25,14 @@ export interface TankMeshes {
   leftWall: THREE.Mesh
   rightWall: THREE.Mesh
   floor: THREE.Mesh
+  sandPanels: THREE.Mesh[]
   waterSurface: Water
   topWater: THREE.Mesh
   frontGlass: THREE.Mesh
   waterLines: THREE.Mesh[]
 }
+
+let baseDisplacements: Float32Array | null = null
 
 export function createTank(scene: THREE.Scene): TankMeshes {
   // Back wall — deep blue gradient via vertex colors
@@ -263,6 +266,13 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     const fine = fbm(u * 25 + 7.3, v * 25 + 3.1) * TANK.sand.grain
     floorPos.setZ(i, dune + fine)
   }
+
+  // Store base displacements for later mounding reset
+  baseDisplacements = new Float32Array(floorPos.count)
+  for (let i = 0; i < floorPos.count; i++) {
+    baseDisplacements[i] = floorPos.getZ(i)
+  }
+
   floorGeo.computeVertexNormals()
 
   const floor = new THREE.Mesh(floorGeo, floorMat)
@@ -270,6 +280,94 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   floor.position.y = SAND_SURFACE_Y
   floor.receiveShadow = true
   scene.add(floor)
+
+  // Sand side panels — visible sand thickness through the glass
+  // Each panel's top edge follows the displaced sand surface; bottom edge is the tank floor.
+
+  /** Build a strip geometry from an array of world-space edge points. */
+  function buildSandPanel(edgePoints: { wx: number; wy: number; wz: number }[]): THREE.BufferGeometry {
+    const n = edgePoints.length
+    const positions: number[] = []
+    const uvs: number[] = []
+    const indices: number[] = []
+    const floorY = -TANK.height / 2
+
+    for (let i = 0; i < n; i++) {
+      const { wx, wy, wz } = edgePoints[i]
+      const u = (i / (n - 1)) * 3 // tile UVs horizontally
+
+      // Bottom vertex (tank floor)
+      positions.push(wx, floorY, wz)
+      uvs.push(u, 0)
+
+      // Top vertex (displaced sand surface)
+      positions.push(wx, wy, wz)
+      uvs.push(u, 1)
+    }
+
+    // Two vertices per column: even index = bottom, odd = top
+    for (let i = 0; i < n - 1; i++) {
+      const b0 = i * 2       // bottom left
+      const t0 = i * 2 + 1   // top left
+      const b1 = (i + 1) * 2 // bottom right
+      const t1 = (i + 1) * 2 + 1 // top right
+
+      indices.push(b0, b1, t0)
+      indices.push(t0, b1, t1)
+    }
+
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+    geo.setIndex(indices)
+    geo.computeVertexNormals()
+    return geo
+  }
+
+  // Extract edge vertices from the displaced floor plane.
+  // PlaneGeometry is in local X-Y plane; after rotation -PI/2 around X:
+  //   world_x = local_x, world_y = SAND_SURFACE_Y + local_z, world_z = -local_y
+  // Rows run from local_y = +depth/2 (back) to local_y = -depth/2 (front).
+  // Columns run from local_x = -width/2 (left) to local_x = +width/2 (right).
+  // Vertex index = row * colCount + col
+
+  const colCount = TANK.sand.segmentsX + 1 // 65
+  const rowCount = TANK.sand.segmentsZ + 1 // 33
+
+  // Front edge: last row (row = segmentsZ), all columns
+  const frontEdge: { wx: number; wy: number; wz: number }[] = []
+  for (let col = 0; col < colCount; col++) {
+    const idx = TANK.sand.segmentsZ * colCount + col
+    const lx = floorPos.getX(idx)
+    const lz = floorPos.getZ(idx)
+    frontEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: TANK.depth / 2 })
+  }
+
+  // Left edge: all rows, column 0
+  const leftEdge: { wx: number; wy: number; wz: number }[] = []
+  for (let row = 0; row < rowCount; row++) {
+    const idx = row * colCount + 0
+    const ly = floorPos.getY(idx)
+    const lz = floorPos.getZ(idx)
+    leftEdge.push({ wx: -TANK.width / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
+  }
+
+  // Right edge: all rows, last column (segmentsX)
+  const rightEdge: { wx: number; wy: number; wz: number }[] = []
+  for (let row = 0; row < rowCount; row++) {
+    const idx = row * colCount + TANK.sand.segmentsX
+    const ly = floorPos.getY(idx)
+    const lz = floorPos.getZ(idx)
+    rightEdge.push({ wx: TANK.width / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
+  }
+
+  const sandPanels: THREE.Mesh[] = []
+  for (const edgePoints of [frontEdge, leftEdge, rightEdge]) {
+    const panelGeo = buildSandPanel(edgePoints)
+    const panel = new THREE.Mesh(panelGeo, floorMat)
+    scene.add(panel)
+    sandPanels.push(panel)
+  }
 
   // Water surface — Three.js Water2 with flow-based dual normals, reflections + refractions
   const waterGeo = new THREE.PlaneGeometry(TANK.width, TANK.depth)
@@ -542,7 +640,7 @@ export function createTank(scene: THREE.Scene): TankMeshes {
   scene.add(airGapRight)
 
   const waterLines = [waterLine, waterLineBack, waterLineLeft, waterLineRight]
-  return { backWall, leftWall, rightWall, floor, waterSurface, topWater, frontGlass, waterLines }
+  return { backWall, leftWall, rightWall, floor, sandPanels, waterSurface, topWater, frontGlass, waterLines }
 }
 
 export function updateWaterSurface(meshes: TankMeshes, dt: number, time: number): void {
