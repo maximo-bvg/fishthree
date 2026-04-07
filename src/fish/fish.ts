@@ -30,6 +30,7 @@ export interface StateContext {
   homeDecor: ProximityInfo | null
   nearestFlake: { distance: number } | null
   timeOfDay?: string
+  hunger?: number
 }
 
 export class FishStateMachine {
@@ -66,7 +67,8 @@ export class FishStateMachine {
     }
 
     // Feed — if food is nearby and not fleeing/hiding
-    const hasNearFlake = ctx.nearestFlake !== null && ctx.nearestFlake.distance < 4.0
+    const feedRange = (ctx.hunger ?? 0) > 0.6 ? 6.0 : 4.0
+    const hasNearFlake = ctx.nearestFlake !== null && ctx.nearestFlake.distance < feedRange
     if (hasNearFlake && this.current !== 'flee' && this.current !== 'hide'
         && this.behaviorType !== 'predator') {
       this.current = 'feed'
@@ -136,6 +138,8 @@ export class Fish {
   targetVelocity: THREE.Vector3
   targetFlakeId: number | null = null
   speedMultiplier = 1.0
+  hunger = 0
+  health = 1.0
   obstacles: Obstacle[] = []
 
   private time = Math.random() * 100
@@ -176,7 +180,8 @@ export class Fish {
     this.applyWallAvoidance()
     this.velocity.lerp(this.targetVelocity, 0.05)
     this.applyObstacleAvoidance()  // direct velocity override — after lerp so it can't be smoothed away
-    this.mesh.position.addScaledVector(this.velocity, dt * this.speedMultiplier)
+    const healthSpeedMod = this.health < 0.3 ? 0.5 : 1.0
+    this.mesh.position.addScaledVector(this.velocity, dt * this.speedMultiplier * healthSpeedMod)
     this.clampToTank()
     this.pushOutOfObstacles()  // absolute last — hard constraint, always wins
 
