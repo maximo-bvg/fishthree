@@ -360,8 +360,17 @@ export function createTank(scene: THREE.Scene): TankMeshes {
     rightEdge.push({ wx: TANK.width / 2, wy: SAND_SURFACE_Y + lz, wz: -ly })
   }
 
+  // Back edge: first row (row = 0), all columns
+  const backEdge: { wx: number; wy: number; wz: number }[] = []
+  for (let col = 0; col < colCount; col++) {
+    const idx = col
+    const lx = floorPos.getX(idx)
+    const lz = floorPos.getZ(idx)
+    backEdge.push({ wx: lx, wy: SAND_SURFACE_Y + lz, wz: -TANK.depth / 2 })
+  }
+
   const sandPanels: THREE.Mesh[] = []
-  for (const edgePoints of [frontEdge, leftEdge, rightEdge]) {
+  for (const edgePoints of [frontEdge, leftEdge, rightEdge, backEdge]) {
     const panelGeo = buildSandPanel(edgePoints)
     const panel = new THREE.Mesh(panelGeo, floorMat)
     scene.add(panel)
@@ -741,4 +750,16 @@ export function moundSandAroundDecorations(
   }
   rightPanelPos.needsUpdate = true
   rightPanel.geometry.computeVertexNormals()
+
+  // Update back panel (sandPanels[3])
+  const backPanel = meshes.sandPanels[3]
+  const backPanelPos = backPanel.geometry.attributes.position as THREE.BufferAttribute
+  for (let col = 0; col < colCount; col++) {
+    const floorIdx = col  // row 0
+    const lz = floorPos.getZ(floorIdx)
+    const topIdx = col * 2 + 1
+    backPanelPos.setY(topIdx, SAND_SURFACE_Y + lz)
+  }
+  backPanelPos.needsUpdate = true
+  backPanel.geometry.computeVertexNormals()
 }
