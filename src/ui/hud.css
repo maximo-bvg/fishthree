@@ -298,3 +298,52 @@
   width: 100px;
   accent-color: #22aa55;
 }
+
+.coin-count {
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.coin-anim {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 600;
+  animation: coin-float 1s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes coin-float {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+.toast-container {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.toast {
+  background: rgba(10, 25, 50, 0.9);
+  border: 1px solid rgba(100, 180, 255, 0.4);
+  border-radius: 8px;
+  padding: 8px 20px;
+  color: #fff;
+  font-size: 14px;
+  font-family: 'Fredoka', sans-serif;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

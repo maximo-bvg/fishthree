@@ -17,6 +17,7 @@ export class HUD {
   private timeIconEl: HTMLSpanElement
   private fishCountEl: HTMLSpanElement
   private decorCountEl: HTMLSpanElement
+  private coinCountEl: HTMLSpanElement
   private bottomBar: HTMLDivElement
   private decorThumbnails: HTMLDivElement
   private editBtn: HTMLButtonElement
@@ -50,6 +51,10 @@ export class HUD {
     this.decorCountEl.textContent = '0/20 Decor'
     stats.appendChild(this.fishCountEl)
     stats.appendChild(this.decorCountEl)
+    this.coinCountEl = document.createElement('span')
+    this.coinCountEl.className = 'coin-count'
+    this.coinCountEl.textContent = '0 Coins'
+    stats.appendChild(this.coinCountEl)
     top.appendChild(stats)
 
     this.container.appendChild(top)
@@ -120,6 +125,19 @@ export class HUD {
   updateCounts(fishCount: number, maxFish: number, decorCount: number, maxDecor: number): void {
     this.fishCountEl.textContent = `${fishCount}/${maxFish} Fish`
     this.decorCountEl.textContent = `${decorCount}/${maxDecor} Decor`
+  }
+
+  updateCoins(coins: number): void {
+    this.coinCountEl.textContent = `${Math.floor(coins)} Coins`
+  }
+
+  showCoinAnimation(amount: number): void {
+    const el = document.createElement('span')
+    el.className = 'coin-anim'
+    el.textContent = amount > 0 ? `+${amount}` : `${amount}`
+    el.style.color = amount > 0 ? '#44dd66' : '#ff6644'
+    this.coinCountEl.parentElement!.appendChild(el)
+    el.addEventListener('animationend', () => el.remove())
   }
 
   getBottomBar(): HTMLDivElement {
