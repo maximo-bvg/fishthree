@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { TANK } from './tank'
+import { TANK, SAND_SURFACE_Y } from './tank'
 
 // --- Floating particles (plankton / dust motes) ---
 
@@ -379,7 +379,7 @@ export function createCausticOverlays(scene: THREE.Scene): void {
   })
   causticFloorMesh = new THREE.Mesh(floorGeo, floorMat)
   causticFloorMesh.rotation.x = -Math.PI / 2
-  causticFloorMesh.position.y = -TANK.height / 2 + 0.02
+  causticFloorMesh.position.y = SAND_SURFACE_Y + 0.02
   scene.add(causticFloorMesh)
 
 }

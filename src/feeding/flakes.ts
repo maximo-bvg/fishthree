@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { TANK } from '../scene/tank'
+import { TANK, SAND_SURFACE_Y } from '../scene/tank'
 
 const MAX_FLAKES = 30
 const CLUSTER_SIZE_MIN = 4
@@ -91,7 +91,7 @@ export class FlakeManager {
   }
 
   update(dt: number): void {
-    const floorY = -TANK.height / 2
+    const floorY = SAND_SURFACE_Y
 
     for (let i = this.flakes.length - 1; i >= 0; i--) {
       const f = this.flakes[i]

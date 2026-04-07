@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { TANK } from '../scene/tank'
+import { TANK, SAND_SURFACE_Y } from '../scene/tank'
 import { DECORATIONS, type DecorationId, type DecorationSize } from './catalog'
 
 export type SlotZone = 'floor_back' | 'floor_front' | 'wall_upper' | 'wall_lower' | 'ceiling'
@@ -34,8 +34,8 @@ function makeSlots(zone: SlotZone, count: number, y: number, z: number, accepted
 }
 
 export const SLOT_DEFINITIONS: SlotDefinition[] = [
-  ...makeSlots('floor_back', 5, -HH + 0.01, -HD + 1.5, ['small', 'medium', 'large']),
-  ...makeSlots('floor_front', 5, -HH + 0.01, HD - 2.0, ['small', 'medium']),
+  ...makeSlots('floor_back', 5, SAND_SURFACE_Y + 0.01, -HD + 1.5, ['small', 'medium', 'large']),
+  ...makeSlots('floor_front', 5, SAND_SURFACE_Y + 0.01, HD - 2.0, ['small', 'medium']),
   ...makeSlots('wall_upper', 4, HH * 0.3, -HD + 0.3, ['small', 'medium']),
   ...makeSlots('wall_lower', 4, -HH * 0.3, -HD + 0.3, ['small', 'medium']),
   ...makeSlots('ceiling', 2, HH - 0.2, 0, ['small', 'medium']),

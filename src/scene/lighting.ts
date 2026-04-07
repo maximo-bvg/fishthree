@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { TANK } from './tank'
+import { TANK, SAND_SURFACE_Y } from './tank'
 
 export interface Lights {
   ambient: THREE.AmbientLight
@@ -50,7 +50,7 @@ export function createLighting(scene: THREE.Scene): Lights {
 
   // Bottom light — shines upward from the floor
   const bottomLight = new THREE.DirectionalLight(0x88bbdd, 3.0)
-  bottomLight.position.set(0, -TANK.height / 2, 0)
+  bottomLight.position.set(0, SAND_SURFACE_Y, 0)
   bottomLight.target.position.set(0, TANK.height, 0)
   scene.add(bottomLight)
   scene.add(bottomLight.target)

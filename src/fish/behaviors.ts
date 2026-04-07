@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { type Fish } from './fish'
 import { computeBoids, BOIDS_DEFAULTS } from './boids'
-import { TANK } from '../scene/tank'
+import { TANK, SAND_SURFACE_Y } from '../scene/tank'
 
 const _dir = new THREE.Vector3()
 const _toHome = new THREE.Vector3()
@@ -125,7 +125,7 @@ export function updateFeed(fish: Fish, flakePos: THREE.Vector3, _dt: number): vo
 }
 
 export function updateBottomDwell(fish: Fish, dt: number): void {
-  const floorY = -TANK.height / 2
+  const floorY = SAND_SURFACE_Y
   const ceilingY = floorY + TANK.height * 0.2
 
   if (fish.targetVelocity.lengthSq() < 0.01 || Math.random() < dt * 0.3) {
@@ -154,7 +154,7 @@ export function updateDrift(fish: Fish, dt: number): void {
     )
   }
 
-  const minY = -TANK.height / 2 + TANK.height * 0.4
+  const minY = SAND_SURFACE_Y + TANK.height * 0.3
   if (fish.position.y < minY) {
     fish.targetVelocity.y = fish.species.speed * 0.3
   }

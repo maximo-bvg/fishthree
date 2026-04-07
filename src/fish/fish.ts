@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { type SpeciesId, type SpeciesDefinition, type BehaviorType, SPECIES } from './species'
 import { createFishMesh, animateFishMesh } from './mesh'
-import { TANK } from '../scene/tank'
+import { TANK, SAND_SURFACE_Y } from '../scene/tank'
 
 export type FishState = 'idle' | 'wander' | 'school' | 'flee' | 'hide' | 'territorial' | 'react' | 'feed'
 
@@ -194,8 +194,10 @@ export class Fish {
     if (pos.y > hh - margin) {
       const t = (pos.y - (hh - margin)) / margin
       this.targetVelocity.y -= strength * t * t
-    } else if (pos.y < -hh + margin) {
-      const t = ((-hh + margin) - pos.y) / margin
+    }
+    const sandFloor = SAND_SURFACE_Y + m
+    if (pos.y < sandFloor + margin) {
+      const t = ((sandFloor + margin) - pos.y) / margin
       this.targetVelocity.y += strength * t * t
     }
 
@@ -217,7 +219,8 @@ export class Fish {
 
     if (pos.x < -hw) { pos.x = -hw; this.velocity.x *= -1; this.targetVelocity.x *= -1 }
     if (pos.x > hw) { pos.x = hw; this.velocity.x *= -1; this.targetVelocity.x *= -1 }
-    if (pos.y < -hh) { pos.y = -hh; this.velocity.y *= -1; this.targetVelocity.y *= -1 }
+    const sandFloorClamp = SAND_SURFACE_Y + m
+    if (pos.y < sandFloorClamp) { pos.y = sandFloorClamp; this.velocity.y *= -1; this.targetVelocity.y *= -1 }
     if (pos.y > hh) { pos.y = hh; this.velocity.y *= -1; this.targetVelocity.y *= -1 }
     if (pos.z < -hd) { pos.z = -hd; this.velocity.z *= -1; this.targetVelocity.z *= -1 }
     if (pos.z > hd) { pos.z = hd; this.velocity.z *= -1; this.targetVelocity.z *= -1 }
