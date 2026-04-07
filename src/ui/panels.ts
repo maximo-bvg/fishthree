@@ -1,6 +1,7 @@
 import { type SpeciesId, SPECIES } from '../fish/species'
 import { type Fish } from '../fish/fish'
 import { type HUD } from './hud'
+import { SPECIES_ECONOMY } from '../game/economy'
 
 export interface PanelCallbacks {
   onAddFish: (speciesId: SpeciesId, name: string) => void
@@ -57,9 +58,15 @@ export function showFishListPanel(hud: HUD, fishes: Fish[], callbacks: PanelCall
   })
 }
 
-export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: number, callbacks: PanelCallbacks): void {
+export function showAddFishPanel(
+  hud: HUD,
+  currentCount: number,
+  maxCount: number,
+  coins: number,
+  callbacks: PanelCallbacks,
+): void {
   let html = `
-    <div class="panel-title">Add Fish (${currentCount}/${maxCount})</div>
+    <div class="panel-title">Fish Shop (${currentCount}/${maxCount})</div>
     <button class="panel-close">&times;</button>
   `
 
@@ -84,13 +91,16 @@ export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: numbe
 
   for (const [id, species] of Object.entries(SPECIES)) {
     const color = '#' + species.color.toString(16).padStart(6, '0')
+    const price = SPECIES_ECONOMY[id as SpeciesId].cost
+    const canAfford = coins >= price
     html += `
-      <div class="species-card" data-species="${id}">
+      <div class="species-card${canAfford ? '' : ' disabled'}" data-species="${id}">
         <div class="species-color" style="background:${color}"></div>
         <div class="species-info">
           <span class="species-info-name">${species.name}</span>
           <span class="species-info-desc">${descriptions[id as SpeciesId]}</span>
         </div>
+        <span class="species-price${canAfford ? '' : ' insufficient'}">${price} coins</span>
       </div>
     `
   }
@@ -98,7 +108,7 @@ export function showAddFishPanel(hud: HUD, currentCount: number, maxCount: numbe
   hud.showPanel(html)
 
   const panel = hud.getPanel()
-  panel.querySelectorAll('.species-card').forEach(card => {
+  panel.querySelectorAll('.species-card:not(.disabled)').forEach(card => {
     card.addEventListener('click', () => {
       const speciesId = (card as HTMLElement).dataset.species as SpeciesId
       const name = SPECIES[speciesId].name + ' ' + (currentCount + 1)
