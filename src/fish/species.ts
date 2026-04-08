@@ -17,7 +17,7 @@ export interface SpeciesDefinition {
   modelRotation?: [number, number, number]  // [x, y, z] euler rotation correction for the inner model
 }
 
-export type SpeciesId = 'tetra' | 'clownfish' | 'angelfish' | 'pufferfish' | 'barracuda' | 'seahorse' | 'pleco' | 'danio' | 'jellyfish' | 'guppy'
+export type SpeciesId = 'tetra' | 'clownfish' | 'angelfish' | 'pufferfish' | 'barracuda' | 'pleco' | 'danio' | 'jellyfish' | 'guppy'
 
 export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
   tetra: {
@@ -93,21 +93,6 @@ export const SPECIES: Record<SpeciesId, SpeciesDefinition> = {
     bodyLength: 0.9,
     modelPath: '/models/fish_generic_rigged.glb',
     modelScale: 0.6,
-    modelRotation: [0, 0, 0],
-  },
-  seahorse: {
-    name: 'Seahorse',
-    size: 0.5,
-    speed: 1.2,
-    tailFrequency: 2,
-    behaviorType: 'anchorer',
-    personality: 'curious',
-    color: 0xff88cc,
-    bodyWidth: 0.1,
-    bodyHeight: 0.35,
-    bodyLength: 0.12,
-    modelPath: '/models/seahorse.glb',
-    modelScale: 0.5,
     modelRotation: [0, 0, 0],
   },
   pleco: {

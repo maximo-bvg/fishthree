@@ -123,7 +123,14 @@ export function updateTerritorial(fish: Fish, homePos: THREE.Vector3, intruders:
   for (const intruder of intruders) {
     const intruderDist = intruder.position.distanceTo(homePos)
     if (intruderDist < orbitRadius * 1.5 && intruder.speciesId !== fish.speciesId) {
-      _dir.subVectors(intruder.position, fish.position).normalize().multiplyScalar(fish.species.speed * 1.3)
+      const toIntruder = fish.position.distanceTo(intruder.position)
+      const minApproach = fish.species.size + intruder.species.size
+      if (toIntruder < minApproach * 1.2) {
+        // Too close to intruder — back off instead of driving into them
+        _dir.subVectors(fish.position, intruder.position).normalize().multiplyScalar(fish.species.speed * 0.8)
+      } else {
+        _dir.subVectors(intruder.position, fish.position).normalize().multiplyScalar(fish.species.speed * 1.3)
+      }
       fish.targetVelocity.copy(_dir)
       return
     }

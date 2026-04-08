@@ -15,7 +15,6 @@ export const SPECIES_ECONOMY: Record<SpeciesId, SpeciesEconomy> = {
   pufferfish: { cost: 45,  coinRate: 2, hungerRate: 0.02  },
   pleco:      { cost: 55,  coinRate: 3, hungerRate: 0.015 },
   angelfish:  { cost: 60,  coinRate: 3, hungerRate: 0.015 },
-  seahorse:   { cost: 65,  coinRate: 3, hungerRate: 0.015 },
   jellyfish:  { cost: 80,  coinRate: 4, hungerRate: 0.01  },
   barracuda:  { cost: 100, coinRate: 5, hungerRate: 0.025 },
 }

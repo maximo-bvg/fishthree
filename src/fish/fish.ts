@@ -378,21 +378,23 @@ export class Fish {
       _fishSepDir.divideScalar(dist)
 
       if (dist < combinedRadius) {
-        // Hard push-out: move this fish so it no longer overlaps
+        // Hard push-out: fully resolve overlap so fish don't stay inside each other
         const overlap = combinedRadius - dist
-        pos.addScaledVector(_fishSepDir, overlap * 0.5 + 0.02)
+        pos.addScaledVector(_fishSepDir, overlap * 0.6 + 0.05)
 
-        // Deflect velocity outward slightly so fish doesn't immediately re-enter
+        // Deflect velocity outward — remove all inward component plus a bounce
         const outwardComponent = this.velocity.dot(_fishSepDir)
         if (outwardComponent < 0) {
-          this.velocity.addScaledVector(_fishSepDir, -outwardComponent * 0.5)
+          this.velocity.addScaledVector(_fishSepDir, -outwardComponent * 1.2)
         }
       }
 
-      // Soft repulsion force: inversely proportional to distance, scaled by speed
+      // Soft repulsion force: use the stronger fish's speed so small/slow fish
+      // aren't overwhelmed by a fast fish's behavior forces driving them together
       const t = 1.0 - dist / separationRange  // 0 at edge, ~1 when very close
-      const force = this.species.speed * 1.2 * t * t
-      this.velocity.addScaledVector(_fishSepDir, force * 0.15)
+      const maxSpeed = Math.max(this.species.speed, other.species.speed)
+      const force = maxSpeed * 3.0 * t * t
+      this.velocity.addScaledVector(_fishSepDir, force)
     }
   }
 

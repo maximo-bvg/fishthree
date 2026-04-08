@@ -82,7 +82,6 @@ export function showAddFishPanel(
     angelfish: 'Graceful wanderer',
     pufferfish: 'Shy, hides near rocks',
     barracuda: 'Large predator patrol',
-    seahorse: 'Clings to plants',
     pleco: 'Slow bottom-dweller',
     danio: 'Fast schooling fish',
     jellyfish: 'Drifting, translucent',
