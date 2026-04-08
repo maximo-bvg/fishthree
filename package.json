@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/three": "^0.183.1",
+    "@vercel/node": "^5.7.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.5",
     "vitest": "^4.1.2"
