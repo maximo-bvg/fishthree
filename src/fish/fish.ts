@@ -6,7 +6,7 @@ import { TANK, SAND_SURFACE_Y } from '../scene/tank'
 export type FishState = 'idle' | 'wander' | 'school' | 'flee' | 'hide' | 'territorial' | 'react' | 'feed'
 
 const FLEE_THRESHOLD = 3.0
-const REACT_THRESHOLD = 2.0
+const REACT_THRESHOLD = 1.5
 const IDLE_DURATION = 1.0
 
 // Reusable temp vectors for obstacle avoidance (avoid per-frame allocation)
@@ -17,6 +17,9 @@ const _nearestToCenter = new THREE.Vector3()
 const _lateral = new THREE.Vector3()
 const _pushDir = new THREE.Vector3()
 const _lateral2 = new THREE.Vector3()
+
+// Reusable temp vector for fish-to-fish separation
+const _fishSepDir = new THREE.Vector3()
 
 interface ProximityInfo {
   distance: number
@@ -153,6 +156,8 @@ export class Fish {
   healthBar: THREE.Sprite | null = null
   private healthBarBg: THREE.Sprite | null = null
   obstacles: Obstacle[] = []
+  otherFish: Fish[] = []
+  wanderAngle = Math.random() * Math.PI * 2
 
   private time = Math.random() * 100
   private bubbleTimer = Math.random() * 5
@@ -239,6 +244,7 @@ export class Fish {
     this.applyWallAvoidance()
     this.velocity.lerp(this.targetVelocity, 0.05)
     this.applyObstacleAvoidance()  // direct velocity override — after lerp so it can't be smoothed away
+    this.applyFishSeparation()     // soft repulsion + hard overlap correction between all fish
     const healthSpeedMod = this.health < 0.3 ? 0.5 : 1.0
     this.mesh.position.addScaledVector(this.velocity, dt * this.speedMultiplier * healthSpeedMod)
     this.clampToTank()
@@ -347,6 +353,47 @@ export class Fish {
     const urgency = 1.0 - Math.max(0, nearestT) / lookAhead
     const force = this.species.speed * 3.0 * urgency
     this.velocity.addScaledVector(_lateral, force)
+  }
+
+  /**
+   * Soft repulsion + hard overlap correction between all fish.
+   * Applies a gentle steering force when fish are within 1.5x combined radii,
+   * and a hard position push when they actually overlap.
+   */
+  private applyFishSeparation(): void {
+    const pos = this.mesh.position
+    const myRadius = this.species.size
+
+    for (const other of this.otherFish) {
+      const otherRadius = other.species.size
+      const combinedRadius = myRadius + otherRadius
+      const separationRange = combinedRadius * 1.5
+
+      _fishSepDir.subVectors(pos, other.mesh.position)
+      const dist = _fishSepDir.length()
+
+      if (dist >= separationRange || dist < 0.001) continue
+
+      // Normalize direction (away from the other fish)
+      _fishSepDir.divideScalar(dist)
+
+      if (dist < combinedRadius) {
+        // Hard push-out: move this fish so it no longer overlaps
+        const overlap = combinedRadius - dist
+        pos.addScaledVector(_fishSepDir, overlap * 0.5 + 0.02)
+
+        // Deflect velocity outward slightly so fish doesn't immediately re-enter
+        const outwardComponent = this.velocity.dot(_fishSepDir)
+        if (outwardComponent < 0) {
+          this.velocity.addScaledVector(_fishSepDir, -outwardComponent * 0.5)
+        }
+      }
+
+      // Soft repulsion force: inversely proportional to distance, scaled by speed
+      const t = 1.0 - dist / separationRange  // 0 at edge, ~1 when very close
+      const force = this.species.speed * 1.2 * t * t
+      this.velocity.addScaledVector(_fishSepDir, force * 0.15)
+    }
   }
 
   /** Hard push fish out of any obstacle — absolute last step, always wins */

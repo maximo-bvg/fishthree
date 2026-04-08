@@ -635,6 +635,7 @@ function updateFishBehaviors(dt: number): void {
 
   for (const fish of fishes) {
     fish.obstacles = cachedObstacles
+    fish.otherFish = fishes.filter(f => f !== fish)
     const threats: THREE.Vector3[] = []
     const school: Fish[] = []
     const intruders: Fish[] = []
